@@ -651,8 +651,29 @@
         }
 
         function clearScriptParameters() {
-            // Clear parameter inputs but keep the base script
-            $('#script-options').empty();
+            // Clear all parameter inputs but keep the base script and option structure
+            $('.script-option').each(function() {
+                let $input = $(this);
+                let type = $input.data('option-type');
+                if (type === 'boolean') {
+                    $input.prop('checked', false);
+                } else if (type === 'negatable') {
+                    $input.val('');
+                } else if (type === 'incremental') {
+                    $input.val(0);
+                } else {
+                    $input.val('');
+                }
+            });
+            // Clear repeatable containers back to single empty entry
+            $('.repeatable-container, .repeatable-hash-container').each(function() {
+                let $entries = $(this).children('.repeatable-entry, .hash-entry');
+                $entries.not(':first').remove();
+                $entries.first().find('input').val('');
+            });
+            // Clear positional args
+            $('.positional-arg').val('');
+
             let basePath = $('#base-script-path').val();
             if (basePath) {
                 $('#job-command').val(basePath);
@@ -1081,48 +1102,255 @@
 
             // Build options UI
             let optionsHtml = '';
-            if (scriptData.options && scriptData.options.length > 0) {
+            let hasOptions = scriptData.options && scriptData.options.length > 0;
+            let hasPositional = scriptData.positional_args && scriptData.positional_args.length > 0;
+
+            if (hasOptions) {
                 scriptData.options.forEach(function(option) {
                     let optionId = 'opt-' + option.name.replace(/[^a-zA-Z0-9]/g, '-');
                     let shortName = option.short_name ? ' (-' + option.short_name + ')' : '';
 
-                    if (option.type === 'boolean') {
-                        // Checkbox for boolean options
+                    if (option.type === 'boolean' && !option.negatable) {
+                        // Simple checkbox for boolean options
                         optionsHtml += `
                             <div class="form-check mb-2">
                                 <input class="form-check-input script-option" type="checkbox"
                                        id="${optionId}"
                                        data-option-name="${option.name}"
-                                       data-option-type="${option.type}">
+                                       data-option-type="boolean">
                                 <label class="form-check-label" for="${optionId}">
                                     <code>--${option.name}${shortName}</code>
                                 </label>
                             </div>
                         `;
+                    } else if (option.negatable) {
+                        // Negatable boolean: three-state select (unset / --name / --no-name)
+                        optionsHtml += `
+                            <div class="mb-3">
+                                <label for="${optionId}" class="form-label">
+                                    <code>--${option.name}${shortName}</code>
+                                    <small class="text-muted">(negatable)</small>
+                                </label>
+                                <select class="form-control form-control-sm script-option"
+                                        id="${optionId}"
+                                        data-option-name="${option.name}"
+                                        data-option-type="negatable">
+                                    <option value="">-- not set --</option>
+                                    <option value="yes">--${option.name}</option>
+                                    <option value="no">--no-${option.name}</option>
+                                </select>
+                            </div>
+                        `;
+                    } else if (option.type === 'incremental') {
+                        // Incremental: number input (how many times to repeat the flag)
+                        optionsHtml += `
+                            <div class="mb-3">
+                                <label for="${optionId}" class="form-label">
+                                    <code>--${option.name}${shortName}</code>
+                                    <small class="text-muted">(repeatable flag)</small>
+                                </label>
+                                <input type="number" min="0" max="10"
+                                       class="form-control form-control-sm script-option"
+                                       id="${optionId}"
+                                       data-option-name="${option.name}"
+                                       data-option-type="incremental"
+                                       value="0"
+                                       placeholder="Number of times to include">
+                            </div>
+                        `;
+                    } else if (option.repeatable && option.dest_type === 'hash') {
+                        // Hash destination: key=value pair inputs
+                        optionsHtml += `
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <code>--${option.name}${shortName}</code>
+                                    ${option.required ? '<span class="text-danger">*</span>' : ''}
+                                    <small class="text-muted">(key=value pairs)</small>
+                                </label>
+                                <div class="repeatable-hash-container" id="${optionId}-container"
+                                     data-option-name="${option.name}"
+                                     data-option-type="${option.type}"
+                                     data-dest-type="hash">
+                                    <div class="input-group input-group-sm mb-1 hash-entry">
+                                        <input type="text" class="form-control hash-key" placeholder="key">
+                                        <span class="input-group-text">=</span>
+                                        <input type="text" class="form-control hash-value" placeholder="value">
+                                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm add-hash-entry"
+                                        data-target="${optionId}-container">
+                                    <i class="fa fa-plus"></i> Add pair
+                                </button>
+                            </div>
+                        `;
+                    } else if (option.repeatable) {
+                        // Array destination: multiple value inputs
+                        optionsHtml += `
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <code>--${option.name}${shortName}</code>
+                                    ${option.required ? '<span class="text-danger">*</span>' : ''}
+                                    <small class="text-muted">(repeatable)</small>
+                                </label>
+                                <div class="repeatable-container" id="${optionId}-container"
+                                     data-option-name="${option.name}"
+                                     data-option-type="${option.type}"
+                                     data-dest-type="array">
+                                    <div class="input-group input-group-sm mb-1 repeatable-entry">
+                                        <input type="${option.type === 'integer' ? 'number' : 'text'}"
+                                               class="form-control repeatable-value"
+                                               placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
+                                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm add-repeatable-entry"
+                                        data-target="${optionId}-container"
+                                        data-input-type="${option.type === 'integer' ? 'number' : 'text'}"
+                                        data-placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
+                                    <i class="fa fa-plus"></i> Add value
+                                </button>
+                            </div>
+                        `;
                     } else {
-                        // Text input for string/integer options
+                        // Simple text/number input for scalar string/integer/float options
                         optionsHtml += `
                             <div class="mb-3">
                                 <label for="${optionId}" class="form-label">
                                     <code>--${option.name}${shortName}</code>
                                     ${option.required ? '<span class="text-danger">*</span>' : ''}
                                 </label>
-                                <input type="${option.type === 'integer' ? 'number' : 'text'}"
+                                <input type="${option.type === 'integer' || option.type === 'float' ? 'number' : 'text'}"
                                        class="form-control form-control-sm script-option"
                                        id="${optionId}"
                                        data-option-name="${option.name}"
                                        data-option-type="${option.type}"
+                                       ${option.type === 'float' ? 'step="any"' : ''}
                                        placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
                             </div>
                         `;
                     }
                 });
-            } else {
-                optionsHtml = '<p class="text-muted">No documented options for this script.</p>';
+            }
+
+            // Positional arguments section
+            if (hasPositional) {
+                optionsHtml += '<hr><h6 class="text-muted"><i class="fa fa-list-ol"></i> Positional Arguments</h6>';
+                optionsHtml += '<p class="text-muted small">These arguments are passed directly (without --flags) and are position-dependent.</p>';
+
+                scriptData.positional_args.forEach(function(arg) {
+                    let argId = 'pos-arg-' + arg.position;
+
+                    if (arg.variadic) {
+                        // Variable-length positional args
+                        optionsHtml += `
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <code>${arg.label}</code>
+                                    <small class="text-muted">(one or more values)</small>
+                                </label>
+                                <div class="repeatable-container positional-variadic" id="${argId}-container"
+                                     data-position="${arg.position}" data-variadic="true">
+                                    <div class="input-group input-group-sm mb-1 repeatable-entry">
+                                        <input type="text" class="form-control repeatable-value positional-arg"
+                                               placeholder="Enter value"
+                                               data-position="${arg.position}">
+                                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm add-repeatable-entry"
+                                        data-target="${argId}-container"
+                                        data-input-type="text"
+                                        data-placeholder="Enter value">
+                                    <i class="fa fa-plus"></i> Add value
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        optionsHtml += `
+                            <div class="mb-3">
+                                <label for="${argId}" class="form-label">
+                                    <code>${arg.label}</code>
+                                    <small class="text-muted">(position ${arg.position + 1})</small>
+                                </label>
+                                <input type="text"
+                                       class="form-control form-control-sm positional-arg"
+                                       id="${argId}"
+                                       data-position="${arg.position}"
+                                       placeholder="Enter value">
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            if (!hasOptions && !hasPositional) {
+                optionsHtml = '<p class="text-muted">No documented options or arguments detected for this script.</p>';
             }
 
             $('#script-options').html(optionsHtml);
             $('#script-params-container').show();
+
+            // Bind repeatable entry handlers
+            bindRepeatableHandlers();
+        }
+
+        function bindRepeatableHandlers() {
+            // Add repeatable value entry
+            $('.add-repeatable-entry').off('click').on('click', function() {
+                let targetId = $(this).data('target');
+                let inputType = $(this).data('input-type') || 'text';
+                let placeholder = $(this).data('placeholder') || 'Enter value';
+                let entryHtml = `
+                    <div class="input-group input-group-sm mb-1 repeatable-entry">
+                        <input type="${inputType}" class="form-control repeatable-value"
+                               placeholder="${placeholder}">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                $('#' + targetId).append(entryHtml);
+                bindRemoveHandlers();
+            });
+
+            // Add hash entry
+            $('.add-hash-entry').off('click').on('click', function() {
+                let targetId = $(this).data('target');
+                let entryHtml = `
+                    <div class="input-group input-group-sm mb-1 hash-entry">
+                        <input type="text" class="form-control hash-key" placeholder="key">
+                        <span class="input-group-text">=</span>
+                        <input type="text" class="form-control hash-value" placeholder="value">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                $('#' + targetId).append(entryHtml);
+                bindRemoveHandlers();
+            });
+
+            bindRemoveHandlers();
+        }
+
+        function bindRemoveHandlers() {
+            $('.remove-repeatable-entry').off('click').on('click', function() {
+                let $container = $(this).closest('.repeatable-container, .repeatable-hash-container');
+                // Keep at least one entry
+                if ($container.children('.repeatable-entry, .hash-entry').length > 1) {
+                    $(this).closest('.repeatable-entry, .hash-entry').remove();
+                } else {
+                    // Clear the inputs instead of removing the last entry
+                    $(this).closest('.repeatable-entry, .hash-entry').find('input').val('');
+                }
+            });
         }
 
         function showPodViewer() {
@@ -1152,6 +1380,8 @@
             }
 
             let params = [];
+
+            // Process simple scalar options (boolean, string, integer, float, negatable, incremental)
             $('.script-option').each(function() {
                 let $input = $(this);
                 let optionName = $input.data('option-name');
@@ -1159,6 +1389,18 @@
 
                 if (optionType === 'boolean') {
                     if ($input.is(':checked')) {
+                        params.push('--' + optionName);
+                    }
+                } else if (optionType === 'negatable') {
+                    let val = $input.val();
+                    if (val === 'yes') {
+                        params.push('--' + optionName);
+                    } else if (val === 'no') {
+                        params.push('--no-' + optionName);
+                    }
+                } else if (optionType === 'incremental') {
+                    let count = parseInt($input.val()) || 0;
+                    for (let i = 0; i < count; i++) {
                         params.push('--' + optionName);
                     }
                 } else {
@@ -1169,9 +1411,62 @@
                 }
             });
 
+            // Process repeatable array options
+            $('.repeatable-container[data-dest-type="array"]').each(function() {
+                let optionName = $(this).data('option-name');
+                $(this).find('.repeatable-value').each(function() {
+                    let value = $(this).val();
+                    if (value && value.trim() !== '') {
+                        params.push('--' + optionName + '=' + value.trim());
+                    }
+                });
+            });
+
+            // Process repeatable hash options
+            $('.repeatable-hash-container[data-dest-type="hash"]').each(function() {
+                let optionName = $(this).data('option-name');
+                $(this).find('.hash-entry').each(function() {
+                    let key = $(this).find('.hash-key').val();
+                    let value = $(this).find('.hash-value').val();
+                    if (key && key.trim() !== '') {
+                        let pair = key.trim() + '=' + (value ? value.trim() : '');
+                        params.push('--' + optionName + '=' + pair);
+                    }
+                });
+            });
+
             let fullCommand = basePath;
             if (params.length > 0) {
                 fullCommand += ' ' + params.join(' ');
+            }
+
+            // Process positional arguments (appended after flags)
+            let positionalValues = [];
+            // Fixed positional args (ordered by position)
+            let fixedArgs = [];
+            $('.positional-arg').not('.repeatable-container .positional-arg').each(function() {
+                let position = parseInt($(this).data('position'));
+                let value = $(this).val();
+                if (value && value.trim() !== '') {
+                    fixedArgs[position] = value.trim();
+                }
+            });
+            // Fill in fixed args in order
+            for (let i = 0; i < fixedArgs.length; i++) {
+                if (fixedArgs[i]) {
+                    positionalValues.push(fixedArgs[i]);
+                }
+            }
+            // Variadic positional args
+            $('.positional-variadic .repeatable-value').each(function() {
+                let value = $(this).val();
+                if (value && value.trim() !== '') {
+                    positionalValues.push(value.trim());
+                }
+            });
+
+            if (positionalValues.length > 0) {
+                fullCommand += ' ' + positionalValues.join(' ');
             }
 
             $('#job-command').val(fullCommand);
@@ -1202,8 +1497,8 @@
 
         function parseCommandParameters(command) {
             // Extract parameters from command
-            // Expected format: script_path --option=value --flag --other=val
-            let params = {};
+            // Returns: { flags: {name: value|true|[values]}, positional: [values] }
+            let result = { flags: {}, positional: [] };
 
             // Split command by spaces, but preserve values with spaces in quotes
             let parts = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
@@ -1212,11 +1507,11 @@
             for (let i = 1; i < parts.length; i++) {
                 let part = parts[i];
 
-                // Handle --option=value format
+                // Handle --option=value or --option format (including --no-option)
                 if (part.startsWith('--')) {
                     let match = part.match(/^--([^=]+)(?:=(.*))?$/);
                     if (match) {
-                        let name = match[1];
+                        let name = match[1]; // Raw name including "no-" prefix if present
                         let value = match[2] !== undefined ? match[2] : true;
 
                         // Remove quotes if present
@@ -1224,34 +1519,193 @@
                             value = value.replace(/^["']|["']$/g, '');
                         }
 
-                        params[name] = value;
+                        if (result.flags.hasOwnProperty(name)) {
+                            // Repeated option: collect into array
+                            let existing = result.flags[name];
+                            if (Array.isArray(existing)) {
+                                existing.push(value);
+                            } else {
+                                result.flags[name] = [existing, value];
+                            }
+                        } else {
+                            result.flags[name] = value;
+                        }
                     }
                 }
                 // Handle -x format (short options)
                 else if (part.startsWith('-') && !part.startsWith('--')) {
-                    // For now, skip short options as we'll map them via the builder
-                    // Could enhance this to map short to long names
+                    // Map short options to long names if possible
+                    if (currentScriptData && currentScriptData.options) {
+                        let shortFlag = part.substring(1);
+                        let matched = currentScriptData.options.find(o => o.short_name === shortFlag);
+                        if (matched) {
+                            result.flags[matched.name] = true;
+                        }
+                    }
+                }
+                // Positional argument (no leading -)
+                else {
+                    let value = part.replace(/^["']|["']$/g, '');
+                    result.positional.push(value);
                 }
             }
 
-            return params;
+            return result;
         }
 
-        function populateScriptParameters(params) {
-            // Populate each parameter input with its value
+        function populateScriptParameters(parsed) {
+            let params = parsed.flags || parsed;
+            let positional = parsed.positional || [];
+
+            // Populate scalar options
             $('.script-option').each(function() {
                 let $input = $(this);
                 let optionName = $input.data('option-name');
                 let optionType = $input.data('option-type');
 
-                if (params.hasOwnProperty(optionName)) {
+                if (optionType === 'negatable') {
+                    // For negatable options, check both --name and --no-name
+                    if (params.hasOwnProperty(optionName)) {
+                        $input.val('yes');
+                    } else if (params.hasOwnProperty('no-' + optionName)) {
+                        $input.val('no');
+                    }
+                } else if (params.hasOwnProperty(optionName)) {
+                    let value = params[optionName];
+
                     if (optionType === 'boolean') {
-                        $input.prop('checked', !!params[optionName]);
+                        $input.prop('checked', !!value);
+                    } else if (optionType === 'incremental') {
+                        // Count how many times the flag appears
+                        if (Array.isArray(value)) {
+                            $input.val(value.length);
+                        } else if (value === true) {
+                            $input.val(1);
+                        }
                     } else {
-                        $input.val(params[optionName]);
+                        // Simple scalar value
+                        if (!Array.isArray(value)) {
+                            $input.val(value);
+                        }
                     }
                 }
             });
+
+            // Populate repeatable array options
+            $('.repeatable-container[data-dest-type="array"]').each(function() {
+                let $container = $(this);
+                let optionName = $container.data('option-name');
+
+                if (params.hasOwnProperty(optionName)) {
+                    let values = params[optionName];
+                    if (!Array.isArray(values)) {
+                        values = [values];
+                    }
+
+                    // Set first value in existing entry
+                    let $entries = $container.find('.repeatable-entry');
+                    values.forEach(function(val, idx) {
+                        if (idx === 0) {
+                            $entries.first().find('.repeatable-value').val(val === true ? '' : val);
+                        } else {
+                            // Add new entries for additional values
+                            let entryHtml = `
+                                <div class="input-group input-group-sm mb-1 repeatable-entry">
+                                    <input type="text" class="form-control repeatable-value"
+                                           value="${escapeHtml(String(val === true ? '' : val))}"
+                                           placeholder="Enter value">
+                                    <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                            `;
+                            $container.append(entryHtml);
+                        }
+                    });
+                }
+            });
+
+            // Populate repeatable hash options
+            $('.repeatable-hash-container[data-dest-type="hash"]').each(function() {
+                let $container = $(this);
+                let optionName = $container.data('option-name');
+
+                if (params.hasOwnProperty(optionName)) {
+                    let values = params[optionName];
+                    if (!Array.isArray(values)) {
+                        values = [values];
+                    }
+
+                    let $entries = $container.find('.hash-entry');
+                    values.forEach(function(val, idx) {
+                        if (typeof val === 'string' && val.indexOf('=') !== -1) {
+                            let kv = val.split('=');
+                            let key = kv[0];
+                            let value = kv.slice(1).join('=');
+
+                            if (idx === 0) {
+                                $entries.first().find('.hash-key').val(key);
+                                $entries.first().find('.hash-value').val(value);
+                            } else {
+                                let entryHtml = `
+                                    <div class="input-group input-group-sm mb-1 hash-entry">
+                                        <input type="text" class="form-control hash-key" placeholder="key" value="${escapeHtml(key)}">
+                                        <span class="input-group-text">=</span>
+                                        <input type="text" class="form-control hash-value" placeholder="value" value="${escapeHtml(value)}">
+                                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </div>
+                                `;
+                                $container.append(entryHtml);
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Populate positional arguments
+            if (positional.length > 0) {
+                let $fixedArgs = $('.positional-arg').not('.repeatable-container .positional-arg');
+                $fixedArgs.each(function() {
+                    let pos = parseInt($(this).data('position'));
+                    if (pos < positional.length) {
+                        $(this).val(positional[pos]);
+                    }
+                });
+
+                // Handle variadic args (remaining positional values after fixed positions)
+                let fixedCount = $fixedArgs.length;
+                let remainingPositional = positional.slice(fixedCount);
+                if (remainingPositional.length > 0) {
+                    let $variadic = $('.positional-variadic');
+                    if ($variadic.length > 0) {
+                        $variadic.each(function() {
+                            let $container = $(this);
+                            remainingPositional.forEach(function(val, idx) {
+                                if (idx === 0) {
+                                    $container.find('.repeatable-value').first().val(val);
+                                } else {
+                                    let entryHtml = `
+                                        <div class="input-group input-group-sm mb-1 repeatable-entry">
+                                            <input type="text" class="form-control repeatable-value positional-arg"
+                                                   value="${escapeHtml(val)}"
+                                                   placeholder="Enter value">
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </div>
+                                    `;
+                                    $container.append(entryHtml);
+                                }
+                            });
+                        });
+                    }
+                }
+            }
+
+            // Re-bind handlers for dynamically added elements
+            bindRepeatableHandlers();
         }
     </script>
 [% END %]
