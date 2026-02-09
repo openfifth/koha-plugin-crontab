@@ -505,7 +505,9 @@
                 let scriptInfo = extractScriptInfo(job.command);
                 let commandHtml = '<div><code>' + escapeHtml(job.command) + '</code>';
                 if (scriptInfo.isPerlScript) {
-                    commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" title="View documentation"><i class="fa fa-book"></i></button>';
+                    // Escape command for use in data attribute
+                    let escapedCommand = job.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" data-command="' + escapedCommand + '" title="View documentation"><i class="fa fa-book"></i></button>';
                 }
                 commandHtml += '</div>';
 
@@ -521,7 +523,7 @@
                     </button>
                 `;
 
-                let row = jobsTable.row.add([
+                jobsTable.row.add([
                     statusBadge,
                     '<code class="schedule-preview">' + job.schedule + '</code>',
                     commandHtml,
@@ -530,9 +532,6 @@
                     new Date(job.updated_at).toLocaleDateString(),
                     actions
                 ]);
-
-                // Store command in row data for later retrieval
-                $(row.node()).find('.view-doc-btn').data('command', job.command);
             });
 
             jobsTable.draw();
@@ -564,7 +563,7 @@
             });
 
             $('.view-doc-btn').off('click').on('click', function() {
-                let command = $(this).data('command');
+                let command = $(this).attr('data-command');
                 viewScriptDocumentation(command);
             });
         }
@@ -818,19 +817,18 @@
                     let scriptInfo = extractScriptInfo(entry.command);
                     let commandHtml = '<div><code>' + escapeHtml(entry.command) + '</code>';
                     if (scriptInfo.isPerlScript) {
-                        commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" title="View documentation"><i class="fa fa-book"></i></button>';
+                        // Escape command for use in data attribute
+                        let escapedCommand = entry.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" data-command="' + escapedCommand + '" title="View documentation"><i class="fa fa-book"></i></button>';
                     }
                     commandHtml += '</div>';
 
-                    let row = systemJobsTable.row.add([
+                    systemJobsTable.row.add([
                         statusBadge,
                         '<code class="schedule-preview">' + entry.schedule + '</code>',
                         commandHtml,
                         comments
                     ]);
-
-                    // Store command in row data for later retrieval
-                    $(row.node()).find('.view-doc-btn').data('command', entry.command);
                 });
             }
 
@@ -842,7 +840,7 @@
 
             // Bind action handlers for system jobs doc buttons
             $('.view-doc-btn').off('click').on('click', function() {
-                let command = $(this).data('command');
+                let command = $(this).attr('data-command');
                 viewScriptDocumentation(command);
             });
         }
