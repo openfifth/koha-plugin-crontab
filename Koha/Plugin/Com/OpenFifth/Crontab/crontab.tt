@@ -206,7 +206,7 @@
                                     <label for="job-enabled" class="form-label">Status</label>
                                     <select class="form-control" id="job-enabled">
                                         <option value="1">Enabled</option>
-                                        <option value="0">Disabled</option>
+                                        <option value="0" selected>Disabled</option>
                                     </select>
                                 </div>
                             </div>
