@@ -501,6 +501,14 @@
                     descriptionHtml = '<span class="text-muted">No description</span>';
                 }
 
+                // Build command cell with documentation button if it's a Perl script
+                let scriptInfo = extractScriptInfo(job.command);
+                let commandHtml = '<div><code>' + escapeHtml(job.command) + '</code>';
+                if (scriptInfo.isPerlScript) {
+                    commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" title="View documentation"><i class="fa fa-book"></i></button>';
+                }
+                commandHtml += '</div>';
+
                 let actions = `
                     <button class="btn btn-xs btn-primary edit-job" data-job-id="${job.id}">
                         <i class="fa fa-edit"></i> Edit
@@ -513,15 +521,18 @@
                     </button>
                 `;
 
-                jobsTable.row.add([
+                let row = jobsTable.row.add([
                     statusBadge,
                     '<code class="schedule-preview">' + job.schedule + '</code>',
-                    '<code>' + job.command + '</code>',
+                    commandHtml,
                     descriptionHtml,
                     envVars,
                     new Date(job.updated_at).toLocaleDateString(),
                     actions
                 ]);
+
+                // Store command in row data for later retrieval
+                $(row.node()).find('.view-doc-btn').data('command', job.command);
             });
 
             jobsTable.draw();
@@ -550,6 +561,11 @@
                 let jobId = $(this).data('job-id');
                 let jobDesc = $(this).data('job-desc');
                 openDeleteModal(jobId, jobDesc);
+            });
+
+            $('.view-doc-btn').off('click').on('click', function() {
+                let command = $(this).data('command');
+                viewScriptDocumentation(command);
             });
         }
 
@@ -798,12 +814,23 @@
                         comments = '<span class="text-muted">No comments</span>';
                     }
 
-                    systemJobsTable.row.add([
+                    // Build command cell with documentation button if it's a Perl script
+                    let scriptInfo = extractScriptInfo(entry.command);
+                    let commandHtml = '<div><code>' + escapeHtml(entry.command) + '</code>';
+                    if (scriptInfo.isPerlScript) {
+                        commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" title="View documentation"><i class="fa fa-book"></i></button>';
+                    }
+                    commandHtml += '</div>';
+
+                    let row = systemJobsTable.row.add([
                         statusBadge,
                         '<code class="schedule-preview">' + entry.schedule + '</code>',
-                        '<code>' + entry.command + '</code>',
+                        commandHtml,
                         comments
                     ]);
+
+                    // Store command in row data for later retrieval
+                    $(row.node()).find('.view-doc-btn').data('command', entry.command);
                 });
             }
 
@@ -812,6 +839,12 @@
             // Hide spinner and show table
             $('#system-jobs-loading').hide();
             $('#system_jobs_table').show();
+
+            // Bind action handlers for system jobs doc buttons
+            $('.view-doc-btn').off('click').on('click', function() {
+                let command = $(this).data('command');
+                viewScriptDocumentation(command);
+            });
         }
 
         function loadEnvironmentVariables() {
@@ -880,6 +913,65 @@
 
         // Script Picker Functions
         let currentScriptData = null;
+
+        // Helper function to extract script information from command
+        function extractScriptInfo(command) {
+            if (!command) return { scriptPath: '', scriptName: '', isPerlScript: false };
+
+            // Extract the script path (everything before first space or entire string)
+            let parts = command.trim().split(/\s+/);
+            let scriptPath = parts[0];
+
+            // Extract script name from path
+            let scriptName = scriptPath.split('/').pop();
+
+            // Check if it's likely a Perl script
+            let isPerlScript = scriptPath.endsWith('.pl');
+
+            return {
+                scriptPath: scriptPath,
+                scriptName: scriptName,
+                isPerlScript: isPerlScript
+            };
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            let map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // View documentation for a script from command
+        function viewScriptDocumentation(command) {
+            let scriptInfo = extractScriptInfo(command);
+
+            if (!scriptInfo.isPerlScript) {
+                showMessage('Documentation is only available for Perl scripts', 'info');
+                return;
+            }
+
+            // Fetch script details
+            $.ajax({
+                url: '/api/v1/contrib/crontab/scripts/details',
+                method: 'GET',
+                data: { name: scriptInfo.scriptName },
+                success: function(data) {
+                    let podContent = data.usage_text || 'No documentation available.';
+                    $('#pod-viewer-label').text('Documentation: ' + data.name);
+                    $('#pod-content').text(podContent);
+                    $('#podViewerModal').modal('show');
+                },
+                error: function(xhr, status, error) {
+                    showMessage('Failed to load documentation: ' + error, 'danger');
+                }
+            });
+        }
 
         function showScriptPicker() {
             $.ajax({
