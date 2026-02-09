@@ -94,18 +94,19 @@ sub get {
         }
 
         # Parse documentation and options
-        my $doc     = $script_model->parse_script_documentation( $script->{path} );
-        my $options = $script_model->parse_script_options( $script->{path} );
+        my $doc    = $script_model->parse_script_documentation( $script->{path} );
+        my $parsed = $script_model->parse_script_options( $script->{path} );
 
         return $c->render(
             status  => 200,
             openapi => {
-                name        => $script->{name},
-                path        => $script->{relative_path},
-                type        => $script->{type},
-                description => $doc->{name_brief} || '',
-                usage_text  => $doc->{usage_text} || '',
-                options     => $options,
+                name            => $script->{name},
+                path            => $script->{relative_path},
+                type            => $script->{type},
+                description     => $doc->{name_brief} || '',
+                usage_text      => $doc->{usage_text} || '',
+                options         => $parsed->{options},
+                positional_args => $parsed->{positional_args},
             }
         );
     }
