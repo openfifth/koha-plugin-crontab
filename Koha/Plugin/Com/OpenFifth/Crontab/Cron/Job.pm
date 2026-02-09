@@ -244,34 +244,35 @@ sub get_all_crontab_entries {
           && $metadata->{'managed-by'}
           && $metadata->{'managed-by'} eq 'koha-crontab-plugin';
 
-        # Extract the cron event from the block
+        # Extract ALL cron events from the block
         my @events = $block->select( -type => 'event' );
         next unless @events;
 
-        my $event = $events[0];
-
-        # Get any comments for system entries
+        # Get any comments for system entries (shared across all events in block)
         my @comments     = $block->select( -type => 'comment' );
         my @comment_text = map { $_->data } @comments;
 
-        my $entry = {
-            schedule => $event->datetime,
-            command  => $event->command,
-            managed  => $is_managed    ? 1 : 0,
-            enabled  => $event->active ? 1 : 0,
-            comments => \@comment_text,
-        };
+        # Iterate through ALL events in the block
+        for my $event (@events) {
+            my $entry = {
+                schedule => $event->datetime,
+                command  => $event->command,
+                managed  => $is_managed    ? 1 : 0,
+                enabled  => $event->active ? 1 : 0,
+                comments => \@comment_text,
+            };
 
-        # Add metadata if plugin-managed
-        if ($is_managed) {
-            $entry->{id}          = $metadata->{'crontab-manager-id'};
-            $entry->{name}        = $metadata->{name}        || '';
-            $entry->{description} = $metadata->{description} || '';
-            $entry->{created}     = $metadata->{created}     || '';
-            $entry->{updated}     = $metadata->{updated}     || '';
+            # Add metadata if plugin-managed
+            if ($is_managed) {
+                $entry->{id}          = $metadata->{'crontab-manager-id'};
+                $entry->{name}        = $metadata->{name}        || '';
+                $entry->{description} = $metadata->{description} || '';
+                $entry->{created}     = $metadata->{created}     || '';
+                $entry->{updated}     = $metadata->{updated}     || '';
+            }
+
+            push @entries, $entry;
         }
-
-        push @entries, $entry;
     }
 
     return \@entries;
