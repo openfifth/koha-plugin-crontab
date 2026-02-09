@@ -763,7 +763,7 @@
                             },
                             "options": {
                                 "type": "array",
-                                "description": "Parsed command-line options",
+                                "description": "Parsed command-line options from GetOptions",
                                 "items": {
                                     "type": "object",
                                     "properties": {
@@ -773,19 +773,58 @@
                                         },
                                         "short_name": {
                                             "type": "string",
-                                            "description": "Short option alias"
+                                            "description": "Short option alias (single character)"
                                         },
                                         "type": {
                                             "type": "string",
-                                            "description": "Option type (boolean, string, integer)"
-                                        },
-                                        "description": {
-                                            "type": "string",
-                                            "description": "Option description from POD"
+                                            "description": "Option value type",
+                                            "enum": ["boolean", "string", "integer", "float", "incremental"]
                                         },
                                         "required": {
                                             "type": "boolean",
-                                            "description": "Whether option is required"
+                                            "description": "Whether option value is required (= vs : modifier)"
+                                        },
+                                        "negatable": {
+                                            "type": "boolean",
+                                            "description": "Whether the option supports --no-name form"
+                                        },
+                                        "incremental": {
+                                            "type": "boolean",
+                                            "description": "Whether each use increments the value"
+                                        },
+                                        "repeatable": {
+                                            "type": "boolean",
+                                            "description": "Whether the option can be specified multiple times"
+                                        },
+                                        "dest_type": {
+                                            "type": "string",
+                                            "description": "Destination variable type",
+                                            "enum": ["scalar", "array", "hash"]
+                                        }
+                                    }
+                                }
+                            },
+                            "positional_args": {
+                                "type": "array",
+                                "description": "Detected positional arguments from @ARGV usage",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "position": {
+                                            "type": "integer",
+                                            "description": "Argument position (0-based)"
+                                        },
+                                        "source": {
+                                            "type": "string",
+                                            "description": "How the argument is accessed in the script"
+                                        },
+                                        "label": {
+                                            "type": "string",
+                                            "description": "Human-readable label derived from variable name"
+                                        },
+                                        "variadic": {
+                                            "type": "boolean",
+                                            "description": "Whether this accepts a variable number of arguments"
                                         }
                                     }
                                 }
