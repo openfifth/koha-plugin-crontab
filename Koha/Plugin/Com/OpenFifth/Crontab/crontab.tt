@@ -785,8 +785,8 @@
             } else {
                 systemJobs.forEach(function(entry) {
                     let statusBadge = entry.enabled
-                        ? '<span class="badge bg-success">Active</span>'
-                        : '<span class="badge bg-secondary">Commented</span>';
+                        ? '<span class="badge bg-success">Enabled</span>'
+                        : '<span class="badge bg-secondary">Disabled</span>';
 
                     let comments = '';
                     if (entry.comments && entry.comments.length > 0) {
