@@ -188,6 +188,7 @@ sub add {
                         description => $body->{description} || '',
                         schedule    => $body->{schedule},
                         command     => $body->{command},
+                        enabled     => $body->{enabled},
                         environment => $body->{environment},
                         created     => $now,
                         updated     => $now,
@@ -215,7 +216,9 @@ sub add {
                 description => $body->{description} || '',
                 schedule    => $body->{schedule},
                 command     => $body->{command},
-                enabled     => Mojo::JSON->true,
+                enabled     => $body->{enabled}
+                ? Mojo::JSON->true
+                : Mojo::JSON->false,
                 environment => $body->{environment} || {},
                 created_at  => $now,
                 updated_at  => $now
