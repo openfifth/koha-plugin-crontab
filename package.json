@@ -1,7 +1,7 @@
 {
   "name": "koha-plugin-openfifth-crontab",
-  "version": "1.3.4",
-  "previous_version": "1.3.3",
+  "version": "1.3.5",
+  "previous_version": "1.3.4",
   "plugin": {
     "module": "Koha::Plugin::Com::OpenFifth::Crontab",
     "pm_path": "Koha/Plugin/Com/OpenFifth/Crontab.pm"
