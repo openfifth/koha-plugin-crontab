@@ -35,7 +35,7 @@ use JSON;
 
 use C4::Context;
 
-our $VERSION         = '1.3.3';
+our $VERSION         = '1.3.4';
 our $MINIMUM_VERSION = "22.11.00.000";
 
 our $metadata = {
