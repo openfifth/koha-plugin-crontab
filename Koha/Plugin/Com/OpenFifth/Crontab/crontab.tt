@@ -610,8 +610,11 @@
                         let matchedScript = data.scripts.find(s => s.relative_path === scriptPath);
                         if (matchedScript) {
                             $('#base-script-path').val(scriptPath);
-                            // Don't automatically load parameters when editing
-                            // User can use "Browse Scripts" if they want to modify
+
+                            // For Perl scripts, load parameters and populate the builder
+                            if (matchedScript.type === 'perl') {
+                                loadScriptDetailsAndPopulateParams(matchedScript.name, command);
+                            }
                         }
                     }
                 },
@@ -1083,6 +1086,82 @@
 
             $('#job-command').val(fullCommand);
             showMessage('Command built successfully', 'success');
+        }
+
+        function loadScriptDetailsAndPopulateParams(scriptName, command) {
+            $.ajax({
+                url: '/api/v1/contrib/crontab/scripts/details',
+                method: 'GET',
+                data: { name: scriptName },
+                success: function(data) {
+                    currentScriptData = data;
+                    displayScriptOptions(data);
+
+                    // Parse existing command parameters
+                    let params = parseCommandParameters(command);
+
+                    // Populate parameter inputs with existing values
+                    populateScriptParameters(params);
+                },
+                error: function(xhr, status, error) {
+                    // Silent failure - user can still manually edit command
+                    console.error('Failed to load script details:', error);
+                }
+            });
+        }
+
+        function parseCommandParameters(command) {
+            // Extract parameters from command
+            // Expected format: script_path --option=value --flag --other=val
+            let params = {};
+
+            // Split command by spaces, but preserve values with spaces in quotes
+            let parts = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+
+            // Skip first part (script path)
+            for (let i = 1; i < parts.length; i++) {
+                let part = parts[i];
+
+                // Handle --option=value format
+                if (part.startsWith('--')) {
+                    let match = part.match(/^--([^=]+)(?:=(.*))?$/);
+                    if (match) {
+                        let name = match[1];
+                        let value = match[2] !== undefined ? match[2] : true;
+
+                        // Remove quotes if present
+                        if (typeof value === 'string') {
+                            value = value.replace(/^["']|["']$/g, '');
+                        }
+
+                        params[name] = value;
+                    }
+                }
+                // Handle -x format (short options)
+                else if (part.startsWith('-') && !part.startsWith('--')) {
+                    // For now, skip short options as we'll map them via the builder
+                    // Could enhance this to map short to long names
+                }
+            }
+
+            return params;
+        }
+
+        function populateScriptParameters(params) {
+            // Populate each parameter input with its value
+            $('.script-option').each(function() {
+                let $input = $(this);
+                let optionName = $input.data('option-name');
+                let optionType = $input.data('option-type');
+
+                if (params.hasOwnProperty(optionName)) {
+                    if (optionType === 'boolean') {
+                        $input.prop('checked', !!params[optionName]);
+                    } else {
+                        $input.val(params[optionName]);
+                    }
+                }
+            });
         }
     </script>
 [% END %]
