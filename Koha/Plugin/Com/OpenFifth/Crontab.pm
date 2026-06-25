@@ -35,7 +35,7 @@ use JSON;
 
 use C4::Context;
 
-our $VERSION         = '1.3.6';
+our $VERSION         = '1.3.7';
 our $MINIMUM_VERSION = "22.11.00.000";
 
 our $metadata = {
@@ -43,7 +43,7 @@ our $metadata = {
     author          => 'Martin Renvoize',
     description     => 'Script scheduling',
     date_authored   => '2023-04-25',
-    date_updated    => '2026-02-10',
+    date_updated    => '2026-06-25',
     minimum_version => $MINIMUM_VERSION,
     maximum_version => undef,
     version         => $VERSION,
