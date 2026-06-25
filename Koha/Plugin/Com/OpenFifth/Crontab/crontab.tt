@@ -954,6 +954,18 @@
             };
         }
 
+        // Shell-quote a parameter value for safe inclusion in a crontab command.
+        // Cron expands bare % to newline before the shell sees the line, so those
+        // are always backslash-escaped. Values containing shell word-splitting or
+        // metacharacters are wrapped in single quotes.
+        function shellQuoteValue(value) {
+            if (value === null || value === undefined) return value;
+            let s = String(value);
+            s = s.replace(/%/g, '\\%');
+            if (!/[ \t"'\\$`|&;()<>!*?[\]{}~]/.test(s)) return s;
+            return "'" + s.replace(/'/g, "'\\''") + "'";
+        }
+
         // Helper function to escape HTML
         function escapeHtml(text) {
             let map = {
@@ -1406,7 +1418,7 @@
                 } else {
                     let value = $input.val();
                     if (value && value.trim() !== '') {
-                        params.push('--' + optionName + '=' + value.trim());
+                        params.push('--' + optionName + '=' + shellQuoteValue(value.trim()));
                     }
                 }
             });
@@ -1417,7 +1429,7 @@
                 $(this).find('.repeatable-value').each(function() {
                     let value = $(this).val();
                     if (value && value.trim() !== '') {
-                        params.push('--' + optionName + '=' + value.trim());
+                        params.push('--' + optionName + '=' + shellQuoteValue(value.trim()));
                     }
                 });
             });
@@ -1454,14 +1466,14 @@
             // Fill in fixed args in order
             for (let i = 0; i < fixedArgs.length; i++) {
                 if (fixedArgs[i]) {
-                    positionalValues.push(fixedArgs[i]);
+                    positionalValues.push(shellQuoteValue(fixedArgs[i]));
                 }
             }
             // Variadic positional args
             $('.positional-variadic .repeatable-value').each(function() {
                 let value = $(this).val();
                 if (value && value.trim() !== '') {
-                    positionalValues.push(value.trim());
+                    positionalValues.push(shellQuoteValue(value.trim()));
                 }
             });
 
