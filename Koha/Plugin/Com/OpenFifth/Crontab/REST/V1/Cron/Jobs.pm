@@ -312,7 +312,7 @@ sub update {
                     description => $metadata->{description} || '',
                     schedule    => $events[0] ? $events[0]->datetime : '',
                     command     => $events[0] ? $events[0]->command  : '',
-                    enabled     => @events    ? 1                    : 0,
+                    enabled     => $events[0] ? ( $events[0]->active ? 1 : 0 ) : 0,
                     environment => \%env,
                     created_at  => $metadata->{created} || '',
                     updated_at  => $metadata->{updated} || '',

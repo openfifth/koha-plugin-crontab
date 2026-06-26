@@ -369,6 +369,9 @@ sub update_job_block {
     my $metadata = $self->parse_job_metadata($block);
     return 0 unless $metadata;
 
+    my @existing_events  = $block->select( -type => 'event' );
+    my $existing_enabled = @existing_events ? $existing_events[0]->active : 1;
+
     # Create updated block
     my $job_data = {
         id          => $metadata->{'crontab-manager-id'},
@@ -379,6 +382,7 @@ sub update_job_block {
         environment => $updates->{environment},
         created     => $metadata->{created},
         updated     => strftime( "%Y-%m-%d %H:%M:%S", localtime ),
+        enabled     => $updates->{enabled}     // $existing_enabled,
     };
 
     # If schedule/command not provided in updates, extract from existing block
@@ -405,7 +409,7 @@ sub update_job_block {
     my $new_block = $self->create_job_block($job_data);
 
     # Replace lines in the existing block
-    $block->lines( $new_block->lines );
+    $block->lines( [ $new_block->lines ] );
 
     return 1;
 }
