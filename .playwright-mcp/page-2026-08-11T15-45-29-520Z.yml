@@ -1,0 +1,214 @@
+- generic [ref=f2e1]:
+  - navigation "Main" [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - link [ref=f2e4] [cursor=pointer]:
+        - /url: /cgi-bin/koha/mainpage.pl
+        - img "Koha" [ref=f2e5]
+      - generic [ref=f2e6]:
+        - list [ref=f2e7]:
+          - listitem [ref=f2e8]:
+            - link "Circulation" [ref=f2e9] [cursor=pointer]:
+              - /url: /cgi-bin/koha/circ/circulation-home.pl
+          - listitem [ref=f2e10]:
+            - link "Patrons" [ref=f2e11] [cursor=pointer]:
+              - /url: /cgi-bin/koha/members/members-home.pl
+          - listitem [ref=f2e12]:
+            - link "Search" [ref=f2e13] [cursor=pointer]:
+              - /url: /cgi-bin/koha/catalogue/search.pl
+          - listitem [ref=f2e14]:
+            - button [ref=f2e15] [cursor=pointer]
+          - listitem [ref=f2e16]:
+            - button "More" [ref=f2e17] [cursor=pointer]
+          - listitem [ref=f2e18]:
+            - link "Cart" [ref=f2e19] [cursor=pointer]:
+              - /url: "#"
+        - list [ref=f2e21]:
+          - listitem [ref=f2e22]:
+            - button [ref=f2e23] [cursor=pointer]
+          - listitem [ref=f2e26]:
+            - button "Debug controls" [ref=f2e27] [cursor=pointer]
+  - generic [ref=f2e29]:
+    - tabpanel [ref=f2e31]:
+      - generic [ref=f2e32]:
+        - textbox [ref=f2e37]:
+          - /placeholder: System preference search
+        - button "Search" [ref=f2e38] [cursor=pointer]
+    - tablist [ref=f2e40]:
+      - tab [selected] [ref=f2e41]
+      - tab [ref=f2e43] [cursor=pointer]
+      - tab [ref=f2e45] [cursor=pointer]
+  - generic [ref=f2e47]:
+    - navigation "Breadcrumb" [ref=f2e48]:
+      - list [ref=f2e49]:
+        - listitem [ref=f2e50]:
+          - link " Home" [ref=f2e51] [cursor=pointer]:
+            - /url: /cgi-bin/koha/mainpage.pl
+            - text: 
+            - generic [ref=f2e52]: Home
+        - listitem [ref=f2e53]:
+          - link "Administration" [ref=f2e54] [cursor=pointer]:
+            - /url: /cgi-bin/koha/admin/admin-home.pl
+        - listitem [ref=f2e55]:
+          - link "Plugins" [ref=f2e56] [cursor=pointer]:
+            - /url: /cgi-bin/koha/plugins/plugins-home.pl
+        - listitem [ref=f2e57]:
+          - generic: "Crontab: Configure"
+    - navigation "Quick shortcuts" [ref=f2e58]:
+      - link [ref=f2e60] [cursor=pointer]:
+        - /url: /cgi-bin/koha/help.pl
+  - generic [ref=f2e63]:
+    - main [ref=f2e65]:
+      - 'heading "Crontab: Configuration" [level=1] [ref=f2e66]'
+      - generic [ref=f2e67]:
+        - group "Global Settings" [ref=f2e68]:
+          - list [ref=f2e70]:
+            - listitem [ref=f2e71]:
+              - generic [ref=f2e72]: "Enable logging:"
+              - combobox [ref=f2e73]:
+                - option "No" [selected]
+                - option "Yes"
+            - listitem [ref=f2e74]:
+              - generic [ref=f2e75]: "Crontab backup retention:"
+              - spinbutton "Crontab backup retention:" [ref=f2e76]: "10"
+              - generic [ref=f2e77]: "Number of crontab backup files to keep. Older backups will be automatically deleted. Default: 10"
+        - group "Security Settings" [ref=f2e78]:
+          - list [ref=f2e80]:
+            - listitem [ref=f2e81]:
+              - generic [ref=f2e82]: "User allowlist:"
+              - listbox [ref=f2e83]
+              - combobox [ref=f2e86]:
+                - list [ref=f2e87]:
+                  - listitem [ref=f2e88]:
+                    - searchbox "Search for patrons to allow access" [ref=f2e89]
+              - generic [ref=f2e90]:
+                - text: Search and select patrons allowed to use this plugin. Leave empty to allow all staff users.
+                - strong [ref=f2e91]: "Note:"
+                - text: Superlibrarians always have access regardless of this setting.
+            - listitem [ref=f2e92]:
+              - generic [ref=f2e93]: "Script policy:"
+              - listbox [ref=f2e103]:
+                - option [ref=f2e104]: TalkingTech_itiva_inbound.pl
+                - option [ref=f2e105]: TalkingTech_itiva_outbound.pl
+                - option [ref=f2e106]: advance_notices.pl
+                - option [ref=f2e107]: anonymize_last_borrowers.pl
+                - option [ref=f2e108]: archive_purchase_suggestions.pl
+                - option [ref=f2e109]: auto_unsuspend_holds.pl
+                - option [ref=f2e110]: automatic_checkin.pl
+                - option [ref=f2e111]: automatic_item_modification_by_age.pl
+                - option [ref=f2e112]: automatic_renewals.pl
+                - option [ref=f2e113]: backup.sh
+                - option [ref=f2e114]: batch_anonymise.pl
+                - option [ref=f2e115]: build_browser_and_cloud.pl
+                - option [ref=f2e116]: build_holds_queue.pl
+                - option [ref=f2e117]: cancel_expired_holds.pl
+                - option [ref=f2e118]: cancel_unfilled_holds.pl
+                - option [ref=f2e119]: cart_to_shelf.pl
+                - option [ref=f2e120]: check-url-quick.pl
+                - option [ref=f2e121]: cleanup_database.pl
+                - option [ref=f2e122]: cloud-kw.pl
+                - option [ref=f2e123]: create_koc_db.pl
+                - option [ref=f2e124]: debar_patrons_with_fines.pl
+                - option [ref=f2e125]: delete_items.pl
+                - option [ref=f2e126]: delete_patrons.pl
+                - option [ref=f2e127]: delete_records_via_leader.pl
+                - option [ref=f2e128]: edi_cron.pl
+                - option [ref=f2e129]: erm_run_harvester.pl
+                - option [ref=f2e130]: expire_recalls.pl
+                - option [ref=f2e131]: fines.pl
+                - option [ref=f2e132]: gather_print_notices.pl
+                - option [ref=f2e133]: get_report_social_data.pl
+                - option [ref=f2e134]: harvest_oai.pl
+                - option [ref=f2e135]: holds_reminder.pl
+                - option [ref=f2e136]: import_webservice_batch.pl
+                - option [selected] [ref=f2e137]: longoverdue.pl
+                - option [ref=f2e138]: marc_ordering_process.pl
+                - option [ref=f2e139]: membership_expiry.pl
+                - option [ref=f2e140]: merge_authorities.pl
+                - option [ref=f2e141]: notice_unprocessed_suggestions.pl
+                - option [ref=f2e142]: overdue_notices.pl
+                - option [ref=f2e143]: overdue_recalls.pl
+                - option [ref=f2e144]: patron_emailer.pl
+                - option [ref=f2e145]: plugins_nightly.pl
+                - option [ref=f2e146]: printoverdues.sh
+                - option [ref=f2e147]: process_message_queue.pl
+                - option [ref=f2e148]: purge_suggestions.pl
+                - option [ref=f2e149]: reconcile_balances.pl
+                - option [ref=f2e150]: remove_temporary_edifiles.pl
+                - option [ref=f2e151]: restrict_patrons_with_failed_notices.pl
+                - option [ref=f2e152]: rss.pl
+                - option [ref=f2e153]: runreport.pl
+                - option [ref=f2e154]: serialsUpdate.pl
+                - option [ref=f2e155]: sftp_file.pl
+                - option [ref=f2e156]: share_usage_with_koha_community.pl
+                - option [ref=f2e157]: sitemap.pl
+                - option [ref=f2e158]: staticfines.pl
+                - option [ref=f2e159]: stockrotation.pl
+                - option [ref=f2e160]: update_patrons_category.pl
+                - option [ref=f2e161]: update_social_data.pl
+                - option [ref=f2e162]: update_totalissues.pl
+                - option [ref=f2e163]: writeoff_debts.pl
+                - option [selected] [ref=f2e164]: batch/report.pl
+                - option [selected] [ref=f2e165]: finegen.pl
+              - combobox [ref=f2e168]:
+                - list [ref=f2e169]:
+                  - generic "Clear selections" [ref=f2e548] [cursor=pointer]: ×
+                  - listitem "longoverdue.pl" [ref=f2e549]: × longoverdue.pl
+                  - listitem "batch/report.pl" [ref=f2e550]: × batch/report.pl
+                  - listitem "finegen.pl" [ref=f2e551]: × finegen.pl
+                  - listitem [ref=f2e173]:
+                    - searchbox [ref=f2e174]
+              - generic [ref=f2e95]:
+                - text: Search and select scripts to allow users to schedule. Leave empty to allow all scripts from KOHA_CRON_PATH.
+                - strong [ref=f2e96]: "Note:"
+                - text: You can also type directory prefixes (e.g.,
+                - code [ref=f2e97]: batch/
+                - text: ) to allow all scripts in that directory.
+                - strong [ref=f2e98]: "Note:"
+                - text: Exact scripts (not prefixes) can additionally be marked non-repeatable or restricted to specific hours below the picker.
+              - generic [ref=f2e554]:
+                - strong [ref=f2e555]: longoverdue.pl
+                - generic [ref=f2e556]:
+                  - checkbox [ref=f2e557]
+                  - generic [ref=f2e558]: Non-repeatable
+                - generic [ref=f2e559]:
+                  - generic [ref=f2e560]: "Allowed hours:"
+                  - textbox "e.g. 1-5" [ref=f2e561]
+                - generic [ref=f2e562]:
+                  - generic [ref=f2e563]: "Required options:"
+                  - generic [ref=f2e564]:
+                    - checkbox [ref=f2e565]
+                    - generic [ref=f2e566]: "--l"
+                  - generic [ref=f2e567]:
+                    - checkbox [ref=f2e568]
+                    - generic [ref=f2e569]: "--c"
+                  - generic [ref=f2e570]:
+                    - checkbox [checked] [ref=f2e571]
+                    - generic [ref=f2e572]: "--maxdays"
+                  - generic [ref=f2e573]:
+                    - checkbox [ref=f2e574]
+                    - generic [ref=f2e575]: "--category"
+                  - generic [ref=f2e576]:
+                    - checkbox [ref=f2e577]
+                    - generic [ref=f2e578]: "--skip-category"
+                  - generic [ref=f2e579]:
+                    - checkbox [ref=f2e580]
+                    - generic [ref=f2e581]: "--library"
+                  - generic [ref=f2e582]:
+                    - checkbox [ref=f2e583]
+                    - generic [ref=f2e584]: "--skip-library"
+                  - generic [ref=f2e585]:
+                    - checkbox [ref=f2e586]
+                    - generic [ref=f2e587]: "--itemtype"
+                  - generic [ref=f2e588]:
+                    - checkbox [ref=f2e589]
+                    - generic [ref=f2e590]: "--skip-itemtype"
+                  - generic [ref=f2e591]:
+                    - checkbox [ref=f2e592]
+                    - generic [ref=f2e593]: "--skip-lost-value"
+        - group [ref=f2e99]:
+          - button "Save" [active] [ref=f2e100] [cursor=pointer]
+          - link "Cancel" [ref=f2e101] [cursor=pointer]:
+            - /url: /cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AOpenFifth%3A%3ACrontab&method=configure
+    - generic:
+      - complementary
+  - status [ref=f2e102]

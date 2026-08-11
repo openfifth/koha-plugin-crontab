@@ -1,0 +1,33 @@
+- generic [ref=e3]:
+  - heading [level=1] [ref=e4]:
+    - link "Koha" [ref=e5] [cursor=pointer]:
+      - /url: https://koha-community.org
+  - generic [ref=e6]:
+    - paragraph [ref=e7]:
+      - generic [ref=e8]: "Username:"
+      - textbox "Username:" [active] [ref=e9]
+    - paragraph [ref=e10]:
+      - generic [ref=e11]: "Password:"
+      - textbox "Password:" [ref=e12]
+      - generic [ref=e13]:
+        - checkbox "Show password" [ref=e14]
+        - generic [ref=e15]: Show password
+    - paragraph [ref=e16]:
+      - generic [ref=e17]: "Library:"
+      - combobox "Library:" [ref=e18]:
+        - option "My library" [selected]
+        - option "Centerville"
+        - option "Fairfield"
+        - option "Fairview"
+        - option "Franklin"
+        - option "Institut Protestant de Théologie"
+        - option "Liberty"
+        - option "Midway"
+        - option "Pleasant Valley"
+        - option "Riverside"
+        - option "Springfield"
+        - option "Troy"
+        - option "Union"
+      - text: "Note: Your selection may be overridden if your current IP matches a specified IP for a branch in Koha"
+    - paragraph [ref=e19]:
+      - button "Log in" [ref=e20] [cursor=pointer]

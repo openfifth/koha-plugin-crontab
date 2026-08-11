@@ -1,5 +1,5 @@
 use Modern::Perl;
-use Test::More tests => 16;
+use Test::More tests => 19;
 use File::Temp qw(tempfile);
 
 my $plugin_dir = $ENV{KOHA_PLUGIN_DIR} || '.';
@@ -92,4 +92,31 @@ my $quoted = $script_model->check_required_options(
 );
 is( $quoted->{valid}, 1, 'shellwords tokenizes a quoted value without splitting the flag from it' );
 
+# Test negatable required options
+my ( $tmp_neg_fh, $tmp_neg_script ) = tempfile( SUFFIX => '.pl' );
+print $tmp_neg_fh <<'SCRIPT';
+use Getopt::Long;
+GetOptions(
+    'verbose|v!' => \my $verbose,
+    'quiet|q!'   => \my $quiet,
+);
+SCRIPT
+close $tmp_neg_fh;
+
+my $negatable_present_positive = $script_model->check_required_options(
+    ['verbose'], '$KOHA_CRON_PATH/script.pl --verbose', $tmp_neg_script
+);
+is( $negatable_present_positive->{valid}, 1, 'negatable required option present via --name form passes' );
+
+my $negatable_present_negative = $script_model->check_required_options(
+    ['verbose'], '$KOHA_CRON_PATH/script.pl --no-verbose', $tmp_neg_script
+);
+is( $negatable_present_negative->{valid}, 1, 'negatable required option present via --no-name form passes' );
+
+my $negatable_missing = $script_model->check_required_options(
+    ['verbose'], '$KOHA_CRON_PATH/script.pl --quiet', $tmp_neg_script
+);
+is( $negatable_missing->{valid}, 0, 'missing negatable required option fails' );
+
 unlink $tmp_script;
+unlink $tmp_neg_script;

@@ -1,0 +1,499 @@
+- generic [ref=f2e1]:
+  - navigation "Main" [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - link [ref=f2e4] [cursor=pointer]:
+        - /url: /cgi-bin/koha/mainpage.pl
+        - img "Koha" [ref=f2e5]
+      - generic [ref=f2e6]:
+        - list [ref=f2e7]:
+          - listitem [ref=f2e8]:
+            - link "Circulation" [ref=f2e9] [cursor=pointer]:
+              - /url: /cgi-bin/koha/circ/circulation-home.pl
+          - listitem [ref=f2e10]:
+            - link "Patrons" [ref=f2e11] [cursor=pointer]:
+              - /url: /cgi-bin/koha/members/members-home.pl
+          - listitem [ref=f2e12]:
+            - link "Search" [ref=f2e13] [cursor=pointer]:
+              - /url: /cgi-bin/koha/catalogue/search.pl
+          - listitem [ref=f2e14]:
+            - button [ref=f2e15] [cursor=pointer]
+          - listitem [ref=f2e16]:
+            - button "More" [ref=f2e17] [cursor=pointer]
+          - listitem [ref=f2e18]:
+            - link "Cart" [ref=f2e19] [cursor=pointer]:
+              - /url: "#"
+        - list [ref=f2e21]:
+          - listitem [ref=f2e22]:
+            - button [ref=f2e23] [cursor=pointer]
+          - listitem [ref=f2e26]:
+            - button "Debug controls" [ref=f2e27] [cursor=pointer]
+  - generic [ref=f2e29]:
+    - tabpanel [ref=f2e31]:
+      - generic [ref=f2e32]:
+        - textbox [ref=f2e37]:
+          - /placeholder: System preference search
+        - button "Search" [ref=f2e38] [cursor=pointer]
+    - tablist [ref=f2e40]:
+      - tab [selected] [ref=f2e41]
+      - tab [ref=f2e43] [cursor=pointer]
+      - tab [ref=f2e45] [cursor=pointer]
+  - generic [ref=f2e47]:
+    - navigation "Breadcrumb" [ref=f2e48]:
+      - list [ref=f2e49]:
+        - listitem [ref=f2e50]:
+          - link " Home" [ref=f2e51] [cursor=pointer]:
+            - /url: /cgi-bin/koha/mainpage.pl
+            - text: 
+            - generic [ref=f2e52]: Home
+        - listitem [ref=f2e53]:
+          - link "Administration" [ref=f2e54] [cursor=pointer]:
+            - /url: /cgi-bin/koha/admin/admin-home.pl
+        - listitem [ref=f2e55]:
+          - link "Plugins" [ref=f2e56] [cursor=pointer]:
+            - /url: /cgi-bin/koha/plugins/plugins-home.pl
+        - listitem [ref=f2e57]:
+          - generic: "Crontab: Configure"
+    - navigation "Quick shortcuts" [ref=f2e58]:
+      - link [ref=f2e60] [cursor=pointer]:
+        - /url: /cgi-bin/koha/help.pl
+  - generic [ref=f2e63]:
+    - main [ref=f2e65]:
+      - 'heading "Crontab: Configuration" [level=1] [ref=f2e66]'
+      - generic [ref=f2e67]:
+        - group "Global Settings" [ref=f2e68]:
+          - list [ref=f2e70]:
+            - listitem [ref=f2e71]:
+              - generic [ref=f2e72]: "Enable logging:"
+              - combobox [ref=f2e73]:
+                - option "No" [selected]
+                - option "Yes"
+            - listitem [ref=f2e74]:
+              - generic [ref=f2e75]: "Crontab backup retention:"
+              - spinbutton "Crontab backup retention:" [ref=f2e76]: "10"
+              - generic [ref=f2e77]: "Number of crontab backup files to keep. Older backups will be automatically deleted. Default: 10"
+        - group "Security Settings" [ref=f2e78]:
+          - list [ref=f2e80]:
+            - listitem [ref=f2e81]:
+              - generic [ref=f2e82]: "User allowlist:"
+              - listbox [ref=f2e83]
+              - combobox [ref=f2e86]:
+                - list [ref=f2e87]:
+                  - listitem [ref=f2e88]:
+                    - searchbox "Search for patrons to allow access" [ref=f2e89]
+              - generic [ref=f2e90]:
+                - text: Search and select patrons allowed to use this plugin. Leave empty to allow all staff users.
+                - strong [ref=f2e91]: "Note:"
+                - text: Superlibrarians always have access regardless of this setting.
+            - listitem [ref=f2e92]:
+              - generic [ref=f2e93]: "Script policy:"
+              - listbox [ref=f2e103]:
+                - option [ref=f2e104]: TalkingTech_itiva_inbound.pl
+                - option [ref=f2e105]: TalkingTech_itiva_outbound.pl
+                - option [ref=f2e106]: advance_notices.pl
+                - option [ref=f2e107]: anonymize_last_borrowers.pl
+                - option [ref=f2e108]: archive_purchase_suggestions.pl
+                - option [ref=f2e109]: auto_unsuspend_holds.pl
+                - option [ref=f2e110]: automatic_checkin.pl
+                - option [ref=f2e111]: automatic_item_modification_by_age.pl
+                - option [ref=f2e112]: automatic_renewals.pl
+                - option [ref=f2e113]: backup.sh
+                - option [ref=f2e114]: batch_anonymise.pl
+                - option [ref=f2e115]: build_browser_and_cloud.pl
+                - option [ref=f2e116]: build_holds_queue.pl
+                - option [ref=f2e117]: cancel_expired_holds.pl
+                - option [ref=f2e118]: cancel_unfilled_holds.pl
+                - option [ref=f2e119]: cart_to_shelf.pl
+                - option [ref=f2e120]: check-url-quick.pl
+                - option [ref=f2e121]: cleanup_database.pl
+                - option [ref=f2e122]: cloud-kw.pl
+                - option [ref=f2e123]: create_koc_db.pl
+                - option [ref=f2e124]: debar_patrons_with_fines.pl
+                - option [ref=f2e125]: delete_items.pl
+                - option [ref=f2e126]: delete_patrons.pl
+                - option [ref=f2e127]: delete_records_via_leader.pl
+                - option [ref=f2e128]: edi_cron.pl
+                - option [ref=f2e129]: erm_run_harvester.pl
+                - option [ref=f2e130]: expire_recalls.pl
+                - option [ref=f2e131]: fines.pl
+                - option [ref=f2e132]: gather_print_notices.pl
+                - option [ref=f2e133]: get_report_social_data.pl
+                - option [ref=f2e134]: harvest_oai.pl
+                - option [ref=f2e135]: holds_reminder.pl
+                - option [ref=f2e136]: import_webservice_batch.pl
+                - option [ref=f2e137]: longoverdue.pl
+                - option [ref=f2e138]: marc_ordering_process.pl
+                - option [ref=f2e139]: membership_expiry.pl
+                - option [ref=f2e140]: merge_authorities.pl
+                - option [ref=f2e141]: notice_unprocessed_suggestions.pl
+                - option [ref=f2e142]: overdue_notices.pl
+                - option [ref=f2e143]: overdue_recalls.pl
+                - option [ref=f2e144]: patron_emailer.pl
+                - option [ref=f2e145]: plugins_nightly.pl
+                - option [ref=f2e146]: printoverdues.sh
+                - option [ref=f2e147]: process_message_queue.pl
+                - option [ref=f2e148]: purge_suggestions.pl
+                - option [ref=f2e149]: reconcile_balances.pl
+                - option [ref=f2e150]: remove_temporary_edifiles.pl
+                - option [ref=f2e151]: restrict_patrons_with_failed_notices.pl
+                - option [ref=f2e152]: rss.pl
+                - option [ref=f2e153]: runreport.pl
+                - option [ref=f2e154]: serialsUpdate.pl
+                - option [ref=f2e155]: sftp_file.pl
+                - option [ref=f2e156]: share_usage_with_koha_community.pl
+                - option [ref=f2e157]: sitemap.pl
+                - option [ref=f2e158]: staticfines.pl
+                - option [ref=f2e159]: stockrotation.pl
+                - option [ref=f2e160]: update_patrons_category.pl
+                - option [ref=f2e161]: update_social_data.pl
+                - option [ref=f2e162]: update_totalissues.pl
+                - option [ref=f2e163]: writeoff_debts.pl
+                - option [selected] [ref=f2e164]: batch/report.pl
+                - option [selected] [ref=f2e165]: finegen.pl
+              - combobox [expanded] [ref=f2e168]:
+                - list [ref=f2e169]:
+                  - generic "Clear selections" [ref=f2e170] [cursor=pointer]: ×
+                  - listitem "batch/report.pl" [ref=f2e171]: × batch/report.pl
+                  - listitem "finegen.pl" [ref=f2e172]: × finegen.pl
+                  - listitem [ref=f2e173]:
+                    - searchbox [active] [ref=f2e174]
+                - listbox [expanded] [ref=f2e175]:
+                  - option "TalkingTech_itiva_inbound.pl perl thirdparty/TalkingTech_itiva_inbound.pl" [ref=f2e176] [cursor=pointer]:
+                    - generic [ref=f2e177]:
+                      - strong [ref=f2e178]: TalkingTech_itiva_inbound.pl
+                      - generic [ref=f2e179]: perl
+                      - code [ref=f2e181]: thirdparty/TalkingTech_itiva_inbound.pl
+                  - option "TalkingTech_itiva_outbound.pl perl thirdparty/TalkingTech_itiva_outbound.pl" [ref=f2e182] [cursor=pointer]:
+                    - generic [ref=f2e183]:
+                      - strong [ref=f2e184]: TalkingTech_itiva_outbound.pl
+                      - generic [ref=f2e185]: perl
+                      - code [ref=f2e187]: thirdparty/TalkingTech_itiva_outbound.pl
+                  - 'option "advance_notices.pl perl Description: This script prepares pre-due and item due reminders to be sent to patrons. It queues them in the message queue, which is processed by the process_message_queue.pl cronjob. The type and timing of the messages can be configured by the patrons in their \"My Alerts\" tab in the OPAC. advance_notices.pl" [ref=f2e188] [cursor=pointer]':
+                    - generic [ref=f2e189]:
+                      - strong [ref=f2e190]: advance_notices.pl
+                      - generic [ref=f2e191]: perl
+                      - text: "Description: This script prepares pre-due and item due reminders to be sent to patrons. It queues them in the message queue, which is processed by the process_message_queue.pl cronjob. The type and timing of the messages can be configured by the patrons in their \"My Alerts\" tab in the OPAC."
+                      - code [ref=f2e193]: advance_notices.pl
+                  - option "anonymize_last_borrowers.pl perl anonymize_last_borrowers.pl" [ref=f2e194] [cursor=pointer]:
+                    - generic [ref=f2e195]:
+                      - strong [ref=f2e196]: anonymize_last_borrowers.pl
+                      - generic [ref=f2e197]: perl
+                      - code [ref=f2e199]: anonymize_last_borrowers.pl
+                  - option "archive_purchase_suggestions.pl perl archive_purchase_suggestions.pl" [ref=f2e200] [cursor=pointer]:
+                    - generic [ref=f2e201]:
+                      - strong [ref=f2e202]: archive_purchase_suggestions.pl
+                      - generic [ref=f2e203]: perl
+                      - code [ref=f2e205]: archive_purchase_suggestions.pl
+                  - option "auto_unsuspend_holds.pl perl holds/auto_unsuspend_holds.pl" [ref=f2e206] [cursor=pointer]:
+                    - generic [ref=f2e207]:
+                      - strong [ref=f2e208]: auto_unsuspend_holds.pl
+                      - generic [ref=f2e209]: perl
+                      - code [ref=f2e211]: holds/auto_unsuspend_holds.pl
+                  - option "automatic_checkin.pl perl automatic_checkin.pl" [ref=f2e212] [cursor=pointer]:
+                    - generic [ref=f2e213]:
+                      - strong [ref=f2e214]: automatic_checkin.pl
+                      - generic [ref=f2e215]: perl
+                      - code [ref=f2e217]: automatic_checkin.pl
+                  - option "automatic_item_modification_by_age.pl perl automatic_item_modification_by_age.pl" [ref=f2e218] [cursor=pointer]:
+                    - generic [ref=f2e219]:
+                      - strong [ref=f2e220]: automatic_item_modification_by_age.pl
+                      - generic [ref=f2e221]: perl
+                      - code [ref=f2e223]: automatic_item_modification_by_age.pl
+                  - 'option "automatic_renewals.pl perl Description: This script searches for issues scheduled for automatic renewal (issues.auto_renew). If there are still renews left (Renewals allowed) and the renewal isn''t premature (No Renewal before) the issue is renewed. automatic_renewals.pl" [ref=f2e224] [cursor=pointer]':
+                    - generic [ref=f2e225]:
+                      - strong [ref=f2e226]: automatic_renewals.pl
+                      - generic [ref=f2e227]: perl
+                      - text: "Description: This script searches for issues scheduled for automatic renewal (issues.auto_renew). If there are still renews left (Renewals allowed) and the renewal isn't premature (No Renewal before) the issue is renewed."
+                      - code [ref=f2e229]: automatic_renewals.pl
+                  - option "backup.sh shell backup.sh" [ref=f2e230] [cursor=pointer]:
+                    - generic [ref=f2e231]:
+                      - strong [ref=f2e232]: backup.sh
+                      - generic [ref=f2e233]: shell
+                      - code [ref=f2e235]: backup.sh
+                  - option "batch_anonymise.pl perl batch_anonymise.pl" [ref=f2e236] [cursor=pointer]:
+                    - generic [ref=f2e237]:
+                      - strong [ref=f2e238]: batch_anonymise.pl
+                      - generic [ref=f2e239]: perl
+                      - code [ref=f2e241]: batch_anonymise.pl
+                  - option "build_browser_and_cloud.pl perl build_browser_and_cloud.pl" [ref=f2e242] [cursor=pointer]:
+                    - generic [ref=f2e243]:
+                      - strong [ref=f2e244]: build_browser_and_cloud.pl
+                      - generic [ref=f2e245]: perl
+                      - code [ref=f2e247]: build_browser_and_cloud.pl
+                  - 'option "build_holds_queue.pl perl Description: This script builds or rebuilds the entire holds queue. holds/build_holds_queue.pl" [ref=f2e248] [cursor=pointer]':
+                    - generic [ref=f2e249]:
+                      - strong [ref=f2e250]: build_holds_queue.pl
+                      - generic [ref=f2e251]: perl
+                      - text: "Description: This script builds or rebuilds the entire holds queue."
+                      - code [ref=f2e253]: holds/build_holds_queue.pl
+                  - 'option "cancel_expired_holds.pl perl Description: This script calls C4::Reserves::CancelExpiredReserves which will find and cancel all expired reserves in the system. holds/cancel_expired_holds.pl" [ref=f2e254] [cursor=pointer]':
+                    - generic [ref=f2e255]:
+                      - strong [ref=f2e256]: cancel_expired_holds.pl
+                      - generic [ref=f2e257]: perl
+                      - text: "Description: This script calls C4::Reserves::CancelExpiredReserves which will find and cancel all expired reserves in the system."
+                      - code [ref=f2e259]: holds/cancel_expired_holds.pl
+                  - option "cancel_unfilled_holds.pl perl holds/cancel_unfilled_holds.pl" [ref=f2e260] [cursor=pointer]:
+                    - generic [ref=f2e261]:
+                      - strong [ref=f2e262]: cancel_unfilled_holds.pl
+                      - generic [ref=f2e263]: perl
+                      - code [ref=f2e265]: holds/cancel_unfilled_holds.pl
+                  - option "cart_to_shelf.pl perl cart_to_shelf.pl" [ref=f2e266] [cursor=pointer]:
+                    - generic [ref=f2e267]:
+                      - strong [ref=f2e268]: cart_to_shelf.pl
+                      - generic [ref=f2e269]: perl
+                      - code [ref=f2e271]: cart_to_shelf.pl
+                  - option "check-url-quick.pl perl check-url-quick.pl" [ref=f2e272] [cursor=pointer]:
+                    - generic [ref=f2e273]:
+                      - strong [ref=f2e274]: check-url-quick.pl
+                      - generic [ref=f2e275]: perl
+                      - code [ref=f2e277]: check-url-quick.pl
+                  - option "cleanup_database.pl perl cleanup_database.pl" [ref=f2e278] [cursor=pointer]:
+                    - generic [ref=f2e279]:
+                      - strong [ref=f2e280]: cleanup_database.pl
+                      - generic [ref=f2e281]: perl
+                      - code [ref=f2e283]: cleanup_database.pl
+                  - option "cloud-kw.pl perl cloud-kw.pl" [ref=f2e284] [cursor=pointer]:
+                    - generic [ref=f2e285]:
+                      - strong [ref=f2e286]: cloud-kw.pl
+                      - generic [ref=f2e287]: perl
+                      - code [ref=f2e289]: cloud-kw.pl
+                  - 'option "create_koc_db.pl perl Description: This script generates a sqlite database file full of patron and holdings data that can be used by an offline circulation tool. create_koc_db.pl" [ref=f2e290] [cursor=pointer]':
+                    - generic [ref=f2e291]:
+                      - strong [ref=f2e292]: create_koc_db.pl
+                      - generic [ref=f2e293]: perl
+                      - text: "Description: This script generates a sqlite database file full of patron and holdings data that can be used by an offline circulation tool."
+                      - code [ref=f2e295]: create_koc_db.pl
+                  - 'option "debar_patrons_with_fines.pl perl Description: This script can be used to automatically debar patrons who have an outstanding debt to the library. debar_patrons_with_fines.pl" [ref=f2e296] [cursor=pointer]':
+                    - generic [ref=f2e297]:
+                      - strong [ref=f2e298]: debar_patrons_with_fines.pl
+                      - generic [ref=f2e299]: perl
+                      - text: "Description: This script can be used to automatically debar patrons who have an outstanding debt to the library."
+                      - code [ref=f2e301]: debar_patrons_with_fines.pl
+                  - 'option "delete_items.pl perl Description: This is a lightweight batch deletion tool for items, suitable for running in a cron job. delete_items.pl" [ref=f2e302] [cursor=pointer]':
+                    - generic [ref=f2e303]:
+                      - strong [ref=f2e304]: delete_items.pl
+                      - generic [ref=f2e305]: perl
+                      - text: "Description: This is a lightweight batch deletion tool for items, suitable for running in a cron job."
+                      - code [ref=f2e307]: delete_items.pl
+                  - option "delete_patrons.pl perl delete_patrons.pl" [ref=f2e308] [cursor=pointer]:
+                    - generic [ref=f2e309]:
+                      - strong [ref=f2e310]: delete_patrons.pl
+                      - generic [ref=f2e311]: perl
+                      - code [ref=f2e313]: delete_patrons.pl
+                  - option "delete_records_via_leader.pl perl delete_records_via_leader.pl" [ref=f2e314] [cursor=pointer]:
+                    - generic [ref=f2e315]:
+                      - strong [ref=f2e316]: delete_records_via_leader.pl
+                      - generic [ref=f2e317]: perl
+                      - code [ref=f2e319]: delete_records_via_leader.pl
+                  - option "edi_cron.pl perl edi_cron.pl" [ref=f2e320] [cursor=pointer]:
+                    - generic [ref=f2e321]:
+                      - strong [ref=f2e322]: edi_cron.pl
+                      - generic [ref=f2e323]: perl
+                      - code [ref=f2e325]: edi_cron.pl
+                  - 'option "erm_run_harvester.pl perl Description: This script fetches usage data from ERM data providers defined in the interface. Configuration: This script harvests from the given date to the specified end date, or until today erm_run_harvester.pl" [ref=f2e326] [cursor=pointer]':
+                    - generic [ref=f2e327]:
+                      - strong [ref=f2e328]: erm_run_harvester.pl
+                      - generic [ref=f2e329]: perl
+                      - text: "Description: This script fetches usage data from ERM data providers defined in the interface. Configuration: This script harvests from the given date to the specified end date, or until today"
+                      - code [ref=f2e331]: erm_run_harvester.pl
+                  - option "expire_recalls.pl perl recalls/expire_recalls.pl" [ref=f2e332] [cursor=pointer]:
+                    - generic [ref=f2e333]:
+                      - strong [ref=f2e334]: expire_recalls.pl
+                      - generic [ref=f2e335]: perl
+                      - code [ref=f2e337]: recalls/expire_recalls.pl
+                  - option "fines.pl perl fines.pl" [ref=f2e338] [cursor=pointer]:
+                    - generic [ref=f2e339]:
+                      - strong [ref=f2e340]: fines.pl
+                      - generic [ref=f2e341]: perl
+                      - code [ref=f2e343]: fines.pl
+                  - option "gather_print_notices.pl perl gather_print_notices.pl" [ref=f2e344] [cursor=pointer]:
+                    - generic [ref=f2e345]:
+                      - strong [ref=f2e346]: gather_print_notices.pl
+                      - generic [ref=f2e347]: perl
+                      - code [ref=f2e349]: gather_print_notices.pl
+                  - option "get_report_social_data.pl perl social_data/get_report_social_data.pl" [ref=f2e350] [cursor=pointer]:
+                    - generic [ref=f2e351]:
+                      - strong [ref=f2e352]: get_report_social_data.pl
+                      - generic [ref=f2e353]: perl
+                      - code [ref=f2e355]: social_data/get_report_social_data.pl
+                  - option "harvest_oai.pl perl harvest_oai.pl" [ref=f2e356] [cursor=pointer]:
+                    - generic [ref=f2e357]:
+                      - strong [ref=f2e358]: harvest_oai.pl
+                      - generic [ref=f2e359]: perl
+                      - code [ref=f2e361]: harvest_oai.pl
+                  - 'option "holds_reminder.pl perl Description: This script is designed to alert patrons of waiting holds. Configuration: This script sends reminders to patrons with waiting holds using a notice defined in the Tools > Notices and slips module within Koha. The lettercode is passed into this script and, along with other options, determine the content of the notices sent to patrons. holds/holds_reminder.pl" [ref=f2e362] [cursor=pointer]':
+                    - generic [ref=f2e363]:
+                      - strong [ref=f2e364]: holds_reminder.pl
+                      - generic [ref=f2e365]: perl
+                      - text: "Description: This script is designed to alert patrons of waiting holds. Configuration: This script sends reminders to patrons with waiting holds using a notice defined in the Tools > Notices and slips module within Koha. The lettercode is passed into this script and, along with other options, determine the content of the notices sent to patrons."
+                      - code [ref=f2e367]: holds/holds_reminder.pl
+                  - 'option "import_webservice_batch.pl perl Description: This script is designed to import batches staged by webservices (e.g. connection). import_webservice_batch.pl" [ref=f2e368] [cursor=pointer]':
+                    - generic [ref=f2e369]:
+                      - strong [ref=f2e370]: import_webservice_batch.pl
+                      - generic [ref=f2e371]: perl
+                      - text: "Description: This script is designed to import batches staged by webservices (e.g. connection)."
+                      - code [ref=f2e373]: import_webservice_batch.pl
+                  - option "longoverdue.pl perl longoverdue.pl" [ref=f2e374] [cursor=pointer]:
+                    - generic [ref=f2e375]:
+                      - strong [ref=f2e376]: longoverdue.pl
+                      - generic [ref=f2e377]: perl
+                      - code [ref=f2e379]: longoverdue.pl
+                  - 'option "marc_ordering_process.pl perl Description: This script searches for new MARC files in an SFTP location If there are new files, it stages those files, adds bilbios/items and creates order lines marc_ordering_process.pl" [ref=f2e380] [cursor=pointer]':
+                    - generic [ref=f2e381]:
+                      - strong [ref=f2e382]: marc_ordering_process.pl
+                      - generic [ref=f2e383]: perl
+                      - text: "Description: This script searches for new MARC files in an SFTP location If there are new files, it stages those files, adds bilbios/items and creates order lines"
+                      - code [ref=f2e385]: marc_ordering_process.pl
+                  - 'option "membership_expiry.pl perl Description: This script sends membership expiry reminder notices to patrons, by email and sms. It queues them in the message queue, which is processed by the process_message_queue.pl cronjob. membership_expiry.pl" [ref=f2e386] [cursor=pointer]':
+                    - generic [ref=f2e387]:
+                      - strong [ref=f2e388]: membership_expiry.pl
+                      - generic [ref=f2e389]: perl
+                      - text: "Description: This script sends membership expiry reminder notices to patrons, by email and sms. It queues them in the message queue, which is processed by the process_message_queue.pl cronjob."
+                      - code [ref=f2e391]: membership_expiry.pl
+                  - 'option "merge_authorities.pl perl Description: Cron script to handle authority merge requests merge_authorities.pl" [ref=f2e392] [cursor=pointer]':
+                    - generic [ref=f2e393]:
+                      - strong [ref=f2e394]: merge_authorities.pl
+                      - generic [ref=f2e395]: perl
+                      - text: "Description: Cron script to handle authority merge requests"
+                      - code [ref=f2e397]: merge_authorities.pl
+                  - option "notice_unprocessed_suggestions.pl perl notice_unprocessed_suggestions.pl" [ref=f2e398] [cursor=pointer]:
+                    - generic [ref=f2e399]:
+                      - strong [ref=f2e400]: notice_unprocessed_suggestions.pl
+                      - generic [ref=f2e401]: perl
+                      - code [ref=f2e403]: notice_unprocessed_suggestions.pl
+                  - option [ref=f2e404] [cursor=pointer]:
+                    - generic [ref=f2e405]:
+                      - strong [ref=f2e406]: overdue_notices.pl
+                      - generic [ref=f2e407]: perl
+                      - text: "Description: This script is designed to alert patrons and administrators of overdue items. Configuration: This script pays attention to the overdue notice configuration performed in the \"Overdue notice/status triggers\" section of the \"Tools\" area of the staff interface to Koha. There, you can choose which letter templates are sent out after a configurable number of days to patrons of each library. More information about the use of this section of Koha is available in the Koha manual. The templates used to craft the emails are defined in the \"Tools: Notices\" section of the staff interface to Koha. Outgoing emails: Typically, messages are prepared for each patron with overdue items. Messages for whom there is no email address on file are collected and sent as attachments in a single email to each library administrator, or if that is not set, then to the email address in the \"KohaAdminEmailAddress\" system preference. These emails are staged in the outgoing message queue, as are messages produced by other features of Koha. This message queue must be processed regularly by the misc/cronjobs/process_message_queue.pl program. In the event that the \"-n\" flag is passed to this program, no emails are sent. Instead, messages are sent on standard output from this program. They may be redirected to a file if desired. Templates: Templates can contain variables enclosed in double angle brackets like <<this>>. Those variables will be replaced with values specific to the overdue items or relevant patron. Available variables are: <<bib>> the name of the library <<items.content>> one line for each item, each line containing a tab separated list of title, author, barcode, issuedate <<borrowers.*>> any field from the borrowers table <<branches.*>> any field from the branches table csv output: The \"-csv\" command line option lets you specify a file to which overdues data should be output in CSV format. With the \"-n\" flag set, data about all overdues is written to the file. Without that flag, only information about overdues that were unable to be sent directly to the patrons will be written. In other words, this CSV file replaces the data that is typically sent to the administrator email address."
+                      - code [ref=f2e409]: overdue_notices.pl
+                  - option "overdue_recalls.pl perl recalls/overdue_recalls.pl" [ref=f2e410] [cursor=pointer]:
+                    - generic [ref=f2e411]:
+                      - strong [ref=f2e412]: overdue_recalls.pl
+                      - generic [ref=f2e413]: perl
+                      - code [ref=f2e415]: recalls/overdue_recalls.pl
+                  - option "patron_emailer.pl perl patron_emailer.pl" [ref=f2e416] [cursor=pointer]:
+                    - generic [ref=f2e417]:
+                      - strong [ref=f2e418]: patron_emailer.pl
+                      - generic [ref=f2e419]: perl
+                      - code [ref=f2e421]: patron_emailer.pl
+                  - option "plugins_nightly.pl perl plugins_nightly.pl" [ref=f2e422] [cursor=pointer]:
+                    - generic [ref=f2e423]:
+                      - strong [ref=f2e424]: plugins_nightly.pl
+                      - generic [ref=f2e425]: perl
+                      - code [ref=f2e427]: plugins_nightly.pl
+                  - option "printoverdues.sh shell printoverdues.sh" [ref=f2e428] [cursor=pointer]:
+                    - generic [ref=f2e429]:
+                      - strong [ref=f2e430]: printoverdues.sh
+                      - generic [ref=f2e431]: shell
+                      - code [ref=f2e433]: printoverdues.sh
+                  - option "process_message_queue.pl perl process_message_queue.pl" [ref=f2e434] [cursor=pointer]:
+                    - generic [ref=f2e435]:
+                      - strong [ref=f2e436]: process_message_queue.pl
+                      - generic [ref=f2e437]: perl
+                      - code [ref=f2e439]: process_message_queue.pl
+                  - option "purge_suggestions.pl perl purge_suggestions.pl" [ref=f2e440] [cursor=pointer]:
+                    - generic [ref=f2e441]:
+                      - strong [ref=f2e442]: purge_suggestions.pl
+                      - generic [ref=f2e443]: perl
+                      - code [ref=f2e445]: purge_suggestions.pl
+                  - 'option "reconcile_balances.pl perl Description: This script loops through patrons with outstanding credits and proceeds to reconcile their balances. reconcile_balances.pl" [ref=f2e446] [cursor=pointer]':
+                    - generic [ref=f2e447]:
+                      - strong [ref=f2e448]: reconcile_balances.pl
+                      - generic [ref=f2e449]: perl
+                      - text: "Description: This script loops through patrons with outstanding credits and proceeds to reconcile their balances."
+                      - code [ref=f2e451]: reconcile_balances.pl
+                  - option "remove_temporary_edifiles.pl perl remove_temporary_edifiles.pl" [ref=f2e452] [cursor=pointer]:
+                    - generic [ref=f2e453]:
+                      - strong [ref=f2e454]: remove_temporary_edifiles.pl
+                      - generic [ref=f2e455]: perl
+                      - code [ref=f2e457]: remove_temporary_edifiles.pl
+                  - option "restrict_patrons_with_failed_notices.pl perl restrict_patrons_with_failed_notices.pl" [ref=f2e458] [cursor=pointer]:
+                    - generic [ref=f2e459]:
+                      - strong [ref=f2e460]: restrict_patrons_with_failed_notices.pl
+                      - generic [ref=f2e461]: perl
+                      - code [ref=f2e463]: restrict_patrons_with_failed_notices.pl
+                  - option "rss.pl perl rss/rss.pl" [ref=f2e464] [cursor=pointer]:
+                    - generic [ref=f2e465]:
+                      - strong [ref=f2e466]: rss.pl
+                      - generic [ref=f2e467]: perl
+                      - code [ref=f2e469]: rss/rss.pl
+                  - 'option "runreport.pl perl Description: This script is designed to run existing Saved Reports. runreport.pl" [ref=f2e470] [cursor=pointer]':
+                    - generic [ref=f2e471]:
+                      - strong [ref=f2e472]: runreport.pl
+                      - generic [ref=f2e473]: perl
+                      - text: "Description: This script is designed to run existing Saved Reports."
+                      - code [ref=f2e475]: runreport.pl
+                  - option "serialsUpdate.pl perl serialsUpdate.pl" [ref=f2e476] [cursor=pointer]:
+                    - generic [ref=f2e477]:
+                      - strong [ref=f2e478]: serialsUpdate.pl
+                      - generic [ref=f2e479]: perl
+                      - code [ref=f2e481]: serialsUpdate.pl
+                  - 'option "sftp_file.pl perl Description: This script is designed to SFTP files. Description: This script is designed to SFTP files to a remote server. sftp_file.pl" [ref=f2e482] [cursor=pointer]':
+                    - generic [ref=f2e483]:
+                      - strong [ref=f2e484]: sftp_file.pl
+                      - generic [ref=f2e485]: perl
+                      - text: "Description: This script is designed to SFTP files. Description: This script is designed to SFTP files to a remote server."
+                      - code [ref=f2e487]: sftp_file.pl
+                  - option "share_usage_with_koha_community.pl perl share_usage_with_koha_community.pl" [ref=f2e488] [cursor=pointer]:
+                    - generic [ref=f2e489]:
+                      - strong [ref=f2e490]: share_usage_with_koha_community.pl
+                      - generic [ref=f2e491]: perl
+                      - code [ref=f2e493]: share_usage_with_koha_community.pl
+                  - 'option "sitemap.pl perl Description: Process all biblio records from a Koha instance and generate Sitemap files complying with this protocol as described on <http://sitemaps.org>. The goal of this script is to be able to provide to search engines direct access to biblio records. It avoid leaving search engine browsing Koha OPAC and so generating a lot of traffic, and workload, for a bad result. A file name sitemapindex.xml is generated. It contains references to Sitemap multiples files. Each file contains at most 50,000 urls, and is named sitemapXXXX.xml. The files must be stored on Koha OPAC root directory, ie <koha-root/koha-tmpl/>. Place also in this directory a robots.txt file like this one: Sitemap: sitemapindex.xml User-agent: * Disallow: /cgi-bin/ sitemap.pl" [ref=f2e494] [cursor=pointer]':
+                    - generic [ref=f2e495]:
+                      - strong [ref=f2e496]: sitemap.pl
+                      - generic [ref=f2e497]: perl
+                      - text: "Description: Process all biblio records from a Koha instance and generate Sitemap files complying with this protocol as described on <http://sitemaps.org>. The goal of this script is to be able to provide to search engines direct access to biblio records. It avoid leaving search engine browsing Koha OPAC and so generating a lot of traffic, and workload, for a bad result. A file name sitemapindex.xml is generated. It contains references to Sitemap multiples files. Each file contains at most 50,000 urls, and is named sitemapXXXX.xml. The files must be stored on Koha OPAC root directory, ie <koha-root/koha-tmpl/>. Place also in this directory a robots.txt file like this one: Sitemap: sitemapindex.xml User-agent: * Disallow: /cgi-bin/"
+                      - code [ref=f2e499]: sitemap.pl
+                  - option "staticfines.pl perl staticfines.pl" [ref=f2e500] [cursor=pointer]:
+                    - generic [ref=f2e501]:
+                      - strong [ref=f2e502]: staticfines.pl
+                      - generic [ref=f2e503]: perl
+                      - code [ref=f2e505]: staticfines.pl
+                  - option [ref=f2e506] [cursor=pointer]:
+                    - generic [ref=f2e507]:
+                      - strong [ref=f2e508]: stockrotation.pl
+                      - generic [ref=f2e509]: perl
+                      - text: "Description: This script is used to move items from one stockrotationstage to the next, if they are elible for processing. it should be run from cron like: stockrotation.pl --report email --send-email --execute Prior to that you can run the script from the command line without the --execute and --send-email parameters to see what reports the script would generate in 'production' mode. This is immensely useful for testing, or for getting to understand how the stockrotation module works: you can set up different scenarios, and then \"query\" the system on what it would do. Normally you would want to run this script once per day, probably around midnight-ish to move any stockrotationitems along their rotas and to generate the email reports for branch libraries. Each library will receive a report with \"items of interest\" for them for today's rota checks. Each item there will be an item that should, according to Koha, be located on the shelves of that branch, and which should be picked up and checked in. The item will either: - have been placed in transit to their new stage library; - have been placed in transit to be returned to their current stage library; - have just been added to a rota and will already be at the correct library; In the last case the item will be checked in and no message will pop up. In the other cases a message will pop up requesting the item be posted to their new branch. What does the --execute flag do?: To understand this, you will need to know a little bit about the design of this script and the stockrotation modules. This script operates in 3 phases: first it walks the graph of rotas, stages and items. For each active rota, it investigates the items in each stage and determines whether action is required. It does not perform any actions, it just \"sieves\" all items on active rotas into \"actionable\" and \"non-actionable\" baskets. We can use these baskets to perform actions against the items, or to generate reports. During the second phase this script then loops through the actionable baskets, and performs the relevant action (initiate, repatriate, advance) on each item. Finally, during the third phase we revisit the original baskets and we compile reports (for instance per branch email reports). When the script is run without the \"--execute\" flag, we perform phase 1, skip phase 2 and move straight onto phase 3. With the \"--execute\" flag we also perform the database operations. So with or without the flag, the report will look the same (except for the \"No database updates have been performed.\"). Helpers: execute: undef = execute($report); Perform the database updates, within a transaction, that are reported as needing to be performed by $REPORT. $REPORT should be the return value of an invocation of `investigate`. This procedure WILL mess with your database. report_full: my $full_report = report_full($report); Return an arrayref containing a string containing a detailed report about the current state of the stockrotation subsystem. $REPORT should be the return value of `investigate`. No data in the database is manipulated by this procedure. report_by_branch: my $email_report = report_by_branch($report, [$branch]); Returns an arrayref containing a header string, with basic report information, and any number of 'per_branch' strings, containing a detailed report about the current state of the stockrotation subsystem, from the perspective of those individual branches. $report should be the return value of `investigate` $branch is optional and should be either 0 (to indicate 'all'), or a specific Koha::Library object. No data in the database is manipulated by this procedure. _report_per_branch: my $branch_string = _report_per_branch($branch_details); return a string containing details about the stockrotation items and their status for the branch identified by $BRANCHCODE. This helper procedure is only used from within `report_by_branch`. No data in the database is manipulated by this procedure. _print_item: my $string = _print_item($item_section); Return a string containing an overview about $ITEM_SECTION. This helper procedure is only used from within `report_full`. No data in the database is manipulated by this procedure. emit: undef = emit($params); $PARAMS should be a hashref of the following format: admin_email: the address to which a copy of all reports should be sent. execute: the flag indicating whether we performed db updates send_all: the flag indicating whether we should send even empty reports send_email: the flag indicating whether we want to emit to stdout or email report: the data structure returned from one of the report procedures No data in the database is manipulated by this procedure. The return value is unspecified: we simply emit a message as a side-effect or die."
+                      - code [ref=f2e511]: stockrotation.pl
+                  - 'option "update_patrons_category.pl perl Description: This script is designed to update patrons from one category to another. update_patrons_category.pl" [ref=f2e512] [cursor=pointer]':
+                    - generic [ref=f2e513]:
+                      - strong [ref=f2e514]: update_patrons_category.pl
+                      - generic [ref=f2e515]: perl
+                      - text: "Description: This script is designed to update patrons from one category to another."
+                      - code [ref=f2e517]: update_patrons_category.pl
+                  - option "update_social_data.pl perl social_data/update_social_data.pl" [ref=f2e518] [cursor=pointer]:
+                    - generic [ref=f2e519]:
+                      - strong [ref=f2e520]: update_social_data.pl
+                      - generic [ref=f2e521]: perl
+                      - code [ref=f2e523]: social_data/update_social_data.pl
+                  - option [ref=f2e524] [cursor=pointer]:
+                    - generic [ref=f2e525]:
+                      - strong [ref=f2e526]: update_totalissues.pl
+                      - generic [ref=f2e527]: perl
+                      - text: "Description: This batch job populates bibliographic records' total issues count based on historical issue statistics. --help Prints this help -v|--verbose Provide verbose log information (list every bib modified). --use-stats Use the data in the statistics table for populating total issues. --use-items Use items.issues data for populating total issues. Note that issues data from the items table does not respect the --since or --interval options, by definition. Also note that if both --use-stats and --use-items are specified, the count of biblios processed will be misleading. -s|--since=DATE Only process issues recorded in the statistics table since DATE. -i|--interval=S Only process issues recorded in the statistics table in the last N units of time. The interval should consist of a number with a one-letter unit suffix. The valid suffixes are h (hours), d (days), w (weeks), m (months), and y (years). The default unit is days. --incremental Add the number of issues found in the statistics table to the existing total issues count. Intended so that this script can be used as a cron job to update popularity information during low-usage periods. If neither --since or --interval are specified, incremental mode will default to processing the last twenty-four hours. --progress=N Print the progress to standard output after every N records are processed. --test Only test the popularity population script."
+                      - code [ref=f2e529]: update_totalissues.pl
+                  - option "writeoff_debts.pl perl writeoff_debts.pl" [ref=f2e530] [cursor=pointer]:
+                    - generic [ref=f2e531]:
+                      - strong [ref=f2e532]: writeoff_debts.pl
+                      - generic [ref=f2e533]: perl
+                      - code [ref=f2e535]: writeoff_debts.pl
+                  - option [selected] [ref=f2e536] [cursor=pointer]:
+                    - strong [ref=f2e538]: batch/report.pl
+                  - option [selected] [ref=f2e539] [cursor=pointer]:
+                    - strong [ref=f2e541]: finegen.pl
+              - generic [ref=f2e95]:
+                - text: Search and select scripts to allow users to schedule. Leave empty to allow all scripts from KOHA_CRON_PATH.
+                - strong [ref=f2e96]: "Note:"
+                - text: You can also type directory prefixes (e.g.,
+                - code [ref=f2e97]: batch/
+                - text: ) to allow all scripts in that directory.
+                - strong [ref=f2e98]: "Note:"
+                - text: Exact scripts (not prefixes) can additionally be marked non-repeatable or restricted to specific hours below the picker.
+        - group [ref=f2e99]:
+          - button "Save" [ref=f2e100] [cursor=pointer]
+          - link "Cancel" [ref=f2e101] [cursor=pointer]:
+            - /url: /cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AOpenFifth%3A%3ACrontab&method=configure
+    - generic:
+      - complementary
+  - status [ref=f2e102]

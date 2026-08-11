@@ -1007,19 +1007,22 @@ sub check_required_options {
 
     my @tokens = shellwords( $command // '' );
 
-    my %short_name_for;
+    my %option_for;
     if ( defined $script_path && length $script_path ) {
         my $parsed = $self->parse_script_options($script_path);
-        %short_name_for = map { $_->{name} => $_->{short_name} } @{ $parsed->{options} };
+        %option_for = map { $_->{name} => { short_name => $_->{short_name}, negatable => $_->{negatable} } } @{ $parsed->{options} };
     }
 
     my @missing;
     for my $name (@$required_options) {
-        my $short = $short_name_for{$name};
+        my $option = $option_for{$name} || {};
+        my $short = $option->{short_name};
+        my $negatable = $option->{negatable};
         my $present = grep {
                  $_ eq "--$name"
-              || index( $_, "--$name=" ) == 0
+              || ( !$negatable && index( $_, "--$name=" ) == 0 )
               || ( $short && ( $_ eq "-$short" || index( $_, "-$short=" ) == 0 ) )
+              || ( $negatable && $_ eq "--no-$name" )
         } @tokens;
         push @missing, $name unless $present;
     }
