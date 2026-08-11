@@ -174,6 +174,24 @@ sub add {
             );
         }
 
+        if ( my $policy = $validation->{policy} ) {
+            my $all_entries = $job_model->get_all_crontab_entries();
+
+            if ( $policy->{non_repeatable} ) {
+                my $check = $script_model->check_non_repeatable( $validation->{script}, $all_entries, undef );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
+            }
+
+            if ( $policy->{allowed_hours} ) {
+                my $check = $script_model->check_allowed_hours( $policy->{allowed_hours}, $body->{schedule} );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
+            }
+        }
+
         my $job_id = $job_model->generate_job_id();
         my $now    = strftime( "%Y-%m-%d %H:%M:%S", localtime );
 
@@ -270,6 +288,45 @@ sub update {
                     status  => 400,
                     openapi => { error => $validation->{error} }
                 );
+            }
+        }
+
+        # Resolve the command/schedule that will be in effect after this
+        # update to evaluate script policy against them — this runs even
+        # when only the schedule (not the command) is changing. This is a
+        # soft lookup: if the effective command can no longer be resolved
+        # to a known script (e.g. the allowlist has tightened since this
+        # job was created), policy is simply not enforced rather than
+        # blocking an unrelated edit.
+        my $existing_jobs = $job_model->get_plugin_managed_jobs();
+        my ($existing_job) = grep { $_->{id} eq $job_id } @$existing_jobs;
+        unless ($existing_job) {
+            return $c->render(
+                status  => 404,
+                openapi => { error => "Job not found" }
+            );
+        }
+
+        my $effective_command  = $body->{command}  // $existing_job->{command};
+        my $effective_schedule = $body->{schedule} // $existing_job->{schedule};
+
+        my $policy_lookup = $script_model->validate_command($effective_command);
+        if ( $policy_lookup->{valid} && $policy_lookup->{policy} ) {
+            my $policy = $policy_lookup->{policy};
+
+            if ( $policy->{non_repeatable} ) {
+                my $all_entries = $job_model->get_all_crontab_entries();
+                my $check = $script_model->check_non_repeatable( $policy_lookup->{script}, $all_entries, $job_id );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
+            }
+
+            if ( $policy->{allowed_hours} ) {
+                my $check = $script_model->check_allowed_hours( $policy->{allowed_hours}, $effective_schedule );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
             }
         }
 
