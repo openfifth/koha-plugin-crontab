@@ -214,6 +214,15 @@ sub add {
                     return $c->render( status => 400, openapi => { error => $check->{error} } );
                 }
             }
+
+            if ( $policy->{required_options} && @{ $policy->{required_options} } ) {
+                my $check = $script_model->check_required_options(
+                    $policy->{required_options}, $body->{command}, $validation->{script}{path}
+                );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
+            }
         }
 
         my $job_id = $job_model->generate_job_id();
@@ -340,6 +349,15 @@ sub migrate {
 
             if ( $policy->{allowed_hours} ) {
                 my $check = $script_model->check_allowed_hours( $policy->{allowed_hours}, $body->{schedule} );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
+            }
+
+            if ( $policy->{required_options} && @{ $policy->{required_options} } ) {
+                my $check = $script_model->check_required_options(
+                    $policy->{required_options}, $body->{command}, $validation->{script}{path}
+                );
                 unless ( $check->{valid} ) {
                     return $c->render( status => 400, openapi => { error => $check->{error} } );
                 }
@@ -501,6 +519,15 @@ sub update {
 
             if ( $policy->{allowed_hours} ) {
                 my $check = $script_model->check_allowed_hours( $policy->{allowed_hours}, $effective_schedule );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
+            }
+
+            if ( $policy->{required_options} && @{ $policy->{required_options} } ) {
+                my $check = $script_model->check_required_options(
+                    $policy->{required_options}, $effective_command, $policy_lookup->{script}{path}
+                );
                 unless ( $check->{valid} ) {
                     return $c->render( status => 400, openapi => { error => $check->{error} } );
                 }
