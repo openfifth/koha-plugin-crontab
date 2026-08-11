@@ -160,8 +160,9 @@ sub get_available_scripts {
         my ($exact_entry) = grep { $_->{path} eq $rel_path || $_->{path} eq $script->{name} } @$effective_policy;
         if ($exact_entry) {
             $script->{policy} = {
-                non_repeatable => $exact_entry->{non_repeatable} ? 1 : 0,
-                allowed_hours  => $exact_entry->{allowed_hours}  || '',
+                non_repeatable   => $exact_entry->{non_repeatable}   ? 1  : 0,
+                allowed_hours    => $exact_entry->{allowed_hours}    || '',
+                required_options => $exact_entry->{required_options} || [],
             };
         }
     }
@@ -238,7 +239,7 @@ positional @ARGV usage.
     my $result = $script->parse_script_options('/path/to/script.pl');
 
 Returns hashref with:
-  options => arrayref of option hashrefs (name, short_name, type, required,
+  options => arrayref of option hashrefs (name, short_name, type,
              negatable, incremental, repeatable, dest_type)
   positional_args => arrayref of detected positional argument patterns
 
@@ -365,7 +366,6 @@ sub _parse_option_spec {
     }
 
     my $type        = 'boolean';
-    my $required    = 0;
     my $negatable   = 0;
     my $incremental = 0;
     my $repeatable  = 0;
@@ -385,8 +385,6 @@ sub _parse_option_spec {
 
     # Handle value types
     if ($req_char) {
-        $required = ( $req_char eq '=' ) ? 1 : 0;
-
         if    ( $type_code eq 's' ) { $type = 'string'; }
         elsif ( $type_code eq 'i' ) { $type = 'integer'; }
         elsif ( $type_code eq 'o' ) { $type = 'integer'; }
@@ -407,7 +405,6 @@ sub _parse_option_spec {
         name        => $name,
         short_name  => $short_name,
         type        => $type,
-        required    => $required,
         negatable   => $negatable,
         incremental => $incremental,
         repeatable  => $repeatable,
@@ -700,13 +697,36 @@ sub _load_policy_source {
 
         push @entries,
           {
-            path           => $raw->{path},
-            non_repeatable => $raw->{non_repeatable} ? 1 : 0,
-            allowed_hours  => $raw->{allowed_hours} || '',
+            path             => $raw->{path},
+            non_repeatable   => $raw->{non_repeatable} ? 1 : 0,
+            allowed_hours    => $raw->{allowed_hours} || '',
+            required_options => $self->_normalize_required_options( $raw->{required_options} ),
           };
     }
 
     return \@entries;
+}
+
+=head2 _normalize_required_options
+
+Normalize a raw required_options value from parsed YAML into a deduped,
+sorted arrayref of option names. Anything other than an arrayref (missing
+key, wrong type) is treated as an empty list.
+
+    my $names = $script->_normalize_required_options( ['lost', 'lost', 'charge'] );
+    # ['charge', 'lost']
+
+=cut
+
+sub _normalize_required_options {
+    my ( $self, $raw ) = @_;
+
+    return [] unless ref($raw) eq 'ARRAY';
+
+    my %seen;
+    my @names = grep { !$seen{$_}++ } grep { defined && length } @$raw;
+
+    return [ sort @names ];
 }
 
 =head2 _intersect_allowed_hours
@@ -766,13 +786,34 @@ sub _merge_policy_tiers {
 
         push @effective,
           {
-            path           => $library->{path},
-            non_repeatable => ( $server->{non_repeatable} || $library->{non_repeatable} ) ? 1 : 0,
-            allowed_hours  => $self->_intersect_allowed_hours( $server->{allowed_hours}, $library->{allowed_hours} ),
+            path             => $library->{path},
+            non_repeatable   => ( $server->{non_repeatable} || $library->{non_repeatable} ) ? 1 : 0,
+            allowed_hours    => $self->_intersect_allowed_hours( $server->{allowed_hours}, $library->{allowed_hours} ),
+            required_options => $self->_union_required_options( $server->{required_options}, $library->{required_options} ),
           };
     }
 
     return \@effective;
+}
+
+=head2 _union_required_options
+
+Combine two required_options lists into their deduped, sorted union. The
+library tier can only ever add to what the server tier requires, never
+remove from it.
+
+    my $names = $script->_union_required_options( ['lost'], ['charge', 'lost'] );
+    # ['charge', 'lost']
+
+=cut
+
+sub _union_required_options {
+    my ( $self, $server_list, $library_list ) = @_;
+
+    my %seen;
+    my @union = grep { !$seen{$_}++ } ( @{ $server_list || [] }, @{ $library_list || [] } );
+
+    return [ sort @union ];
 }
 
 =head2 get_server_policy
