@@ -138,6 +138,14 @@ sub configure {
 
         my $policy_json = $cgi->param('script_policy') || '{"scripts":[]}';
         my $policy_data = eval { decode_json($policy_json) } || { scripts => [] };
+
+        # Normalize JSON booleans to plain scalars before YAML serialization
+        # This prevents !!perl/scalar:JSON::PP::Boolean tags in the YAML output
+        for my $script ( @{ $policy_data->{scripts} || [] } ) {
+            $script->{non_repeatable} = $script->{non_repeatable} ? 1 : 0;
+            $script->{allowed_hours}  = $script->{allowed_hours} // '';
+        }
+
         my $policy_yaml = Dump($policy_data);
 
         $self->store_data(
