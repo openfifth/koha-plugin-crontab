@@ -9,6 +9,7 @@ use Pod::Usage;
 use Try::Tiny;
 use C4::Context;
 use YAML::XS qw(Load);
+use Text::ParseWords qw(shellwords);
 
 =head1 NAME
 
@@ -971,6 +972,62 @@ sub check_allowed_hours {
             error => "Schedule hour(s) "
               . join( ', ', @disallowed )
               . " are outside the allowed hours ($allowed_hours_spec) for this script",
+        };
+    }
+
+    return { valid => 1 };
+}
+
+=head2 check_required_options
+
+Check that a command supplies a value for every option name listed in a
+script's effective required_options policy. Getopt::Long's own spec syntax
+cannot express "this flag is mandatory" (only "this flag needs a value if
+it's used"), so required-ness is entirely policy-driven — this just
+confirms each required flag's token is actually present in the submitted
+command.
+
+    my $result = $script->check_required_options( $required_options, $command, $script_path );
+
+$required_options is an arrayref of long option names. $script_path, if
+given, is used to resolve each name to its short alias (via
+C<parse_script_options>) so a command using the short form also satisfies
+the requirement; without it, only long-form tokens are recognised.
+
+Returns { valid => 1 } immediately if $required_options is empty/undef.
+Otherwise returns { valid => 1 } or { valid => 0, error => '...' } naming
+every missing option at once.
+
+=cut
+
+sub check_required_options {
+    my ( $self, $required_options, $command, $script_path ) = @_;
+
+    return { valid => 1 } unless $required_options && @$required_options;
+
+    my @tokens = shellwords( $command // '' );
+
+    my %short_name_for;
+    if ( defined $script_path && length $script_path ) {
+        my $parsed = $self->parse_script_options($script_path);
+        %short_name_for = map { $_->{name} => $_->{short_name} } @{ $parsed->{options} };
+    }
+
+    my @missing;
+    for my $name (@$required_options) {
+        my $short = $short_name_for{$name};
+        my $present = grep {
+                 $_ eq "--$name"
+              || index( $_, "--$name=" ) == 0
+              || ( $short && ( $_ eq "-$short" || index( $_, "-$short=" ) == 0 ) )
+        } @tokens;
+        push @missing, $name unless $present;
+    }
+
+    if (@missing) {
+        return {
+            valid => 0,
+            error => "Required option(s) missing: " . join( ', ', map { "--$_" } @missing ),
         };
     }
 
