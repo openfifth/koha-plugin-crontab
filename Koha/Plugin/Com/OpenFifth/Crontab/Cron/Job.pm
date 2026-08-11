@@ -6,6 +6,7 @@ use Modern::Perl;
 use POSIX qw(strftime);
 use UUID;
 use Config::Crontab;
+use Scalar::Util qw(refaddr);
 
 =head1 NAME
 
@@ -411,6 +412,107 @@ sub update_job_block {
     # Replace lines in the existing block
     $block->lines( [ $new_block->lines ] );
 
+    return 1;
+}
+
+=head2 find_unmanaged_entry
+
+Find an unmanaged (non-plugin) block/event pair matching the given
+schedule, command, and comments exactly.
+
+    my ( $block, $event ) = $job->find_unmanaged_entry( $ct, $schedule, $command, $comments );
+
+$comments is an arrayref of raw comment line strings, in the same order
+$block->select(-type => 'comment') returns them (i.e. as returned by
+get_all_crontab_entries's 'comments' field for this entry).
+
+Returns ($block, $event) if found, or an empty list if not. Never matches a
+block that's already plugin-managed.
+
+=cut
+
+sub find_unmanaged_entry {
+    my ( $self, $ct, $schedule, $command, $comments ) = @_;
+
+    $comments ||= [];
+
+    for my $block ( $ct->blocks ) {
+        my $metadata = $self->parse_job_metadata($block);
+        my $is_managed =
+             $metadata
+          && $metadata->{'managed-by'}
+          && $metadata->{'managed-by'} eq 'koha-crontab-plugin';
+        next if $is_managed;
+
+        my @block_comments = map { $_->data } $block->select( -type => 'comment' );
+        next unless _comments_match( \@block_comments, $comments );
+
+        for my $event ( $block->select( -type => 'event' ) ) {
+            next unless $event->datetime eq $schedule && $event->command eq $command;
+            return ( $block, $event );
+        }
+    }
+
+    return ();
+}
+
+=head2 entry_matches
+
+Check whether a get_all_crontab_entries()-shaped entry matches the given
+schedule, command, and comments exactly.
+
+    my $matches = $job->entry_matches( $entry, $schedule, $command, $comments );
+
+=cut
+
+sub entry_matches {
+    my ( $self, $entry, $schedule, $command, $comments ) = @_;
+
+    return 0 unless $entry->{schedule} eq $schedule && $entry->{command} eq $command;
+    return _comments_match( $entry->{comments} || [], $comments || [] );
+}
+
+=head2 extract_event_from_block
+
+Remove a single event from a block, preserving any sibling events and the
+block's own comments. If the event is the block's only event, the entire
+block is removed from the crontab instead.
+
+    $job->extract_event_from_block( $ct, $block, $event );
+
+=cut
+
+sub extract_event_from_block {
+    my ( $self, $ct, $block, $event ) = @_;
+
+    my @events = $block->select( -type => 'event' );
+
+    if ( scalar(@events) <= 1 ) {
+        $ct->remove($block);
+        return;
+    }
+
+    my $target_addr      = refaddr($event);
+    my @remaining_lines = grep { refaddr($_) != $target_addr } $block->lines;
+    $block->lines( \@remaining_lines );
+
+    return;
+}
+
+=head2 _comments_match
+
+Compare two arrayrefs of raw comment line strings for exact equality
+(same length, same strings, same order).
+
+=cut
+
+sub _comments_match {
+    my ( $a, $b ) = @_;
+
+    return 0 unless scalar(@$a) == scalar(@$b);
+    for my $i ( 0 .. $#$a ) {
+        return 0 unless $a->[$i] eq $b->[$i];
+    }
     return 1;
 }
 
