@@ -837,6 +837,105 @@ sub _effective_policy {
     return $self->_merge_policy_tiers( $self->get_server_policy(), $self->get_library_policy() );
 }
 
+=head2 _command_references_script
+
+Best-effort check for whether a crontab entry's command invokes the given
+script — matched as a whole path token against either the script's
+$KOHA_CRON_PATH-relative form or its raw resolved absolute path. This is a
+textual heuristic: it will not catch every possible way an arbitrary
+system-managed command could invoke the same script (symlinks, unusual
+wrappers, obscured paths).
+
+    my $matches = $script->_command_references_script( $command, $script_hashref );
+
+=cut
+
+sub _command_references_script {
+    my ( $self, $command, $script ) = @_;
+
+    return 0 unless defined $command && length $command;
+
+    for my $candidate ( grep { defined && length } ( $script->{relative_path}, $script->{path} ) ) {
+        return 1 if $command =~ /(?:^|\s)\Q$candidate\E(?:\s|$)/;
+    }
+
+    return 0;
+}
+
+=head2 check_non_repeatable
+
+Check whether any OTHER crontab entry (managed or system) already
+references the given script.
+
+    my $result = $script->check_non_repeatable( $script_hashref, $all_entries, $exclude_job_id );
+
+$all_entries is the arrayref returned by Cron::Job->get_all_crontab_entries
+(each entry has 'command', 'schedule', and an 'id' key present only for
+plugin-managed entries). $exclude_job_id, if given, excludes the managed
+entry with that crontab-manager-id from the scan (used when updating a job
+so it doesn't conflict with itself).
+
+Returns { valid => 1 } or { valid => 0, error => '...' }.
+
+=cut
+
+sub check_non_repeatable {
+    my ( $self, $script, $all_entries, $exclude_job_id ) = @_;
+
+    for my $entry (@$all_entries) {
+        next if defined $exclude_job_id && defined $entry->{id} && $entry->{id} eq $exclude_job_id;
+        next unless $self->_command_references_script( $entry->{command}, $script );
+
+        return {
+            valid => 0,
+            error => "Script '$script->{name}' is marked non-repeatable and is already scheduled ("
+              . $entry->{schedule} . ")",
+        };
+    }
+
+    return { valid => 1 };
+}
+
+=head2 check_allowed_hours
+
+Check that a cron schedule's hour field falls entirely within an
+allowed_hours policy spec.
+
+    my $result = $script->check_allowed_hours( '1-5', '0 3 * * *' );
+
+Returns { valid => 1 } or { valid => 0, error => '...' }. A blank/undef
+$allowed_hours_spec always passes (no restriction).
+
+=cut
+
+sub check_allowed_hours {
+    my ( $self, $allowed_hours_spec, $schedule ) = @_;
+
+    return { valid => 1 } unless $allowed_hours_spec && $allowed_hours_spec =~ /\S/;
+
+    my @fields     = split /\s+/, ( $schedule // '' );
+    my $hour_field = $fields[1];
+
+    return { valid => 0, error => "Schedule '$schedule' is missing an hour field" }
+      unless defined $hour_field && length $hour_field;
+
+    my $scheduled_hours = $self->_expand_cron_hour_field($hour_field);
+    my $allowed_hours    = $self->_expand_allowed_hours($allowed_hours_spec);
+
+    my @disallowed = sort { $a <=> $b } grep { !$allowed_hours->{$_} } keys %$scheduled_hours;
+
+    if (@disallowed) {
+        return {
+            valid => 0,
+            error => "Schedule hour(s) "
+              . join( ', ', @disallowed )
+              . " are outside the allowed hours ($allowed_hours_spec) for this script",
+        };
+    }
+
+    return { valid => 1 };
+}
+
 1;
 
 =head1 AUTHOR
