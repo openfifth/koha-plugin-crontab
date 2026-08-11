@@ -1511,6 +1511,19 @@
                 });
             });
 
+            let missingRequired = (currentScriptData && currentScriptData.options ? currentScriptData.options : [])
+                .filter(function(option) { return option.required; })
+                .filter(function(option) {
+                    let prefix = '--' + option.name;
+                    return !params.some(function(p) { return p === prefix || p.indexOf(prefix + '=') === 0; });
+                });
+
+            if (missingRequired.length > 0) {
+                let names = missingRequired.map(function(o) { return '--' + o.name; }).join(', ');
+                showMessage('Missing required option(s): ' + names, 'danger');
+                return;
+            }
+
             let fullCommand = basePath;
             if (params.length > 0) {
                 fullCommand += ' ' + params.join(' ');
