@@ -151,7 +151,7 @@
                             <div class="page-section">
                                 <div class="alert alert-info">
                                     <i class="fa fa-info-circle"></i> These jobs are managed outside this plugin (e.g., by Ansible, manually, or other tools).
-                                    They are displayed as <strong>read-only</strong> for your reference to avoid scheduling conflicts.
+                                    They are shown for reference to avoid scheduling conflicts. Jobs using an approved script can be <strong>migrated</strong> into plugin management.
                                 </div>
                                 <div id="system-jobs-loading" class="text-center my-4" style="display: none;">
                                     <i class="fa fa-spinner fa-pulse fa-3x fa-fw text-muted"></i>
@@ -164,6 +164,7 @@
                                             <th>Schedule</th>
                                             <th>Command</th>
                                             <th>Comments</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="system_jobs_tbody">
@@ -389,7 +390,10 @@
                 "searching": true,
                 "ordering": true,
                 "info": true,
-                "autoWidth": false
+                "autoWidth": false,
+                "columnDefs": [
+                    { "orderable": false, "targets": -1 } // Disable sorting on Actions column
+                ]
             });
 
             // Load all data on page load
@@ -830,6 +834,7 @@
                     '<span class="text-muted">-</span>',
                     '<span class="text-muted">-</span>',
                     '<span class="text-muted">No system jobs found</span>',
+                    '<span class="text-muted">-</span>',
                     '<span class="text-muted">-</span>'
                 ]);
             } else {
@@ -855,11 +860,18 @@
                     }
                     commandHtml += '</div>';
 
+                    let escapedScheduleAttr = entry.schedule.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    let escapedCommandAttr = entry.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    let commentsAttr = encodeURIComponent(JSON.stringify(entry.comments || []));
+                    let migrateHtml = '<button class="btn btn-xs btn-success migrate-job" data-schedule="' + escapedScheduleAttr + '" data-command="' + escapedCommandAttr + '" data-comments="' + commentsAttr + '">' +
+                        '<i class="fa fa-arrow-right"></i> Migrate</button>';
+
                     systemJobsTable.row.add([
                         statusBadge,
                         '<code class="schedule-preview">' + entry.schedule + '</code>',
                         commandHtml,
-                        comments
+                        comments,
+                        migrateHtml
                     ]);
                 });
             }
@@ -874,6 +886,33 @@
             $('.view-doc-btn').off('click').on('click', function() {
                 let command = $(this).attr('data-command');
                 viewScriptDocumentation(command);
+            });
+
+            $('.migrate-job').off('click').on('click', function() {
+                let schedule = $(this).attr('data-schedule');
+                let command = $(this).attr('data-command');
+                let comments = JSON.parse(decodeURIComponent($(this).attr('data-comments')));
+
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/jobs/migrate',
+                    method: 'POST',
+                    data: JSON.stringify({ schedule: schedule, command: command, comments: comments }),
+                    contentType: 'application/json',
+                    success: function(job) {
+                        showMessage('System job migrated to a managed job', 'success');
+                        loadJobs();
+                        loadAllCrontabEntries();
+                        new bootstrap.Tab(document.getElementById('managed-tab')).show();
+                        openJobModal(job.id);
+                    },
+                    error: function(xhr, status, error) {
+                        let message = 'Failed to migrate job';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            message += ': ' + xhr.responseJSON.error;
+                        }
+                        showMessage(message, 'danger');
+                    }
+                });
             });
         }
 
