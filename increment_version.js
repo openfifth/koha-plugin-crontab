@@ -85,7 +85,51 @@ pluginContent = pluginContent.replace(
 fs.writeFileSync(pluginFile, pluginContent);
 console.log('Plugin file updated successfully');
 
+// Update CHANGELOG.md: promote [Unreleased] to the new version, refresh links
+updateChangelog(packageJson.previous_version, newVersion, today);
+
 console.log(`\nVersion bump complete!`);
 console.log(`Previous version: ${packageJson.previous_version}`);
 console.log(`New version: ${newVersion}`);
 console.log(`Date updated: ${today}`);
+
+function updateChangelog(oldVersion, newVersion, today) {
+    const changelogPath = 'CHANGELOG.md';
+    if (!fs.existsSync(changelogPath)) {
+        console.log('No CHANGELOG.md found — skipping changelog update');
+        return;
+    }
+
+    let changelog = fs.readFileSync(changelogPath, 'utf8');
+
+    const unreleasedHeader = '## [Unreleased]';
+    if (!changelog.includes(unreleasedHeader)) {
+        console.log('Warning: CHANGELOG.md has no [Unreleased] section — skipping');
+        return;
+    }
+
+    // Promote [Unreleased] to a dated version section, leaving a fresh empty
+    // [Unreleased] above it so the next release can accumulate entries.
+    changelog = changelog.replace(
+        unreleasedHeader,
+        `${unreleasedHeader}\n\n## [${newVersion}] - ${today}`
+    );
+
+    // Refresh the comparison links at the bottom of the file:
+    //   [Unreleased]: .../compare/vOLD...HEAD  →  vNEW...HEAD
+    //   insert       [NEW]: .../compare/vOLD...vNEW   above the previous one
+    const linkRegex = /^\[Unreleased\]:\s*(.+?)\/compare\/v[\d.]+\.\.\.HEAD\s*$/m;
+    const linkMatch = changelog.match(linkRegex);
+    if (linkMatch) {
+        const repoBase = linkMatch[1];
+        const replacement =
+            `[Unreleased]: ${repoBase}/compare/v${newVersion}...HEAD\n` +
+            `[${newVersion}]: ${repoBase}/compare/v${oldVersion}...v${newVersion}`;
+        changelog = changelog.replace(linkRegex, replacement);
+    } else {
+        console.log('Warning: Could not find [Unreleased] compare link — links not updated');
+    }
+
+    fs.writeFileSync(changelogPath, changelog);
+    console.log(`CHANGELOG.md: promoted [Unreleased] → [${newVersion}] (${today})`);
+}

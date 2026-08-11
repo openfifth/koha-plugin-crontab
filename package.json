@@ -10,9 +10,9 @@
     "version:patch": "node increment_version.js patch | cat",
     "version:minor": "node increment_version.js minor | cat",
     "version:major": "node increment_version.js major | cat",
-    "release:patch": "node increment_version.js patch | cat && PLUGIN_FILE=$(node -p 'require(\"./package.json\").plugin.pm_path') && git add package.json \"$PLUGIN_FILE\" && git commit -m 'chore: bump version' && VERSION=$(node -p 'require(\"./package.json\").version') && git tag -a v$VERSION -m \"Release v$VERSION\" && git push origin main --follow-tags",
-    "release:minor": "node increment_version.js minor | cat && PLUGIN_FILE=$(node -p 'require(\"./package.json\").plugin.pm_path') && git add package.json \"$PLUGIN_FILE\" && git commit -m 'chore: bump version' && VERSION=$(node -p 'require(\"./package.json\").version') && git tag -a v$VERSION -m \"Release v$VERSION\" && git push origin main --follow-tags",
-    "release:major": "node increment_version.js major | cat && PLUGIN_FILE=$(node -p 'require(\"./package.json\").plugin.pm_path') && git add package.json \"$PLUGIN_FILE\" && git commit -m 'chore: bump version' && VERSION=$(node -p 'require(\"./package.json\").version') && git tag -a v$VERSION -m \"Release v$VERSION\" && git push origin main --follow-tags"
+    "release:patch": "node increment_version.js patch | cat && PLUGIN_FILE=$(node -p 'require(\"./package.json\").plugin.pm_path') && git add package.json \"$PLUGIN_FILE\" CHANGELOG.md && git commit -m 'chore: bump version' && VERSION=$(node -p 'require(\"./package.json\").version') && git tag -a v$VERSION -m \"Release v$VERSION\" && node ensure_workflows_enabled.js && git push origin main --follow-tags",
+    "release:minor": "node increment_version.js minor | cat && PLUGIN_FILE=$(node -p 'require(\"./package.json\").plugin.pm_path') && git add package.json \"$PLUGIN_FILE\" CHANGELOG.md && git commit -m 'chore: bump version' && VERSION=$(node -p 'require(\"./package.json\").version') && git tag -a v$VERSION -m \"Release v$VERSION\" && node ensure_workflows_enabled.js && git push origin main --follow-tags",
+    "release:major": "node increment_version.js major | cat && PLUGIN_FILE=$(node -p 'require(\"./package.json\").plugin.pm_path') && git add package.json \"$PLUGIN_FILE\" CHANGELOG.md && git commit -m 'chore: bump version' && VERSION=$(node -p 'require(\"./package.json\").version') && git tag -a v$VERSION -m \"Release v$VERSION\" && node ensure_workflows_enabled.js && git push origin main --follow-tags"
   },
   "repository": {
     "type": "git",
