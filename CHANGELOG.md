@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Script policy: mark individual allowed scripts as non-repeatable (only one scheduled instance at a time) or restricted to specific hours of the day
 - Optional server-administrator-controlled script policy file (`koha_plugin_crontab_script_policy` koha-conf.xml entry) that acts as a ceiling/floor on the library's own script policy settings
 - Warning badge on the Managed Jobs table for jobs that currently violate script policy (existing jobs are never blocked or altered, only flagged)
+- Migrate a system (unmanaged) crontab entry into a plugin-managed job directly from the System Jobs tab, preserving its schedule, command, and enabled state
 
 ### Changed
 - Replaced Data::UUID with UUID module to eliminate external dependencies
