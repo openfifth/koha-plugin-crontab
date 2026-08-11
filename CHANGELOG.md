@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-08-11
+
 ### Fixed
 - Creating or updating a job with a schedule using a 3-letter day-of-week or month name (e.g. `Mon`, `Jan` — valid, standard cron syntax) failed with a 500 error, because the crontab writer's own post-write validation was stricter than the underlying crontab parser it was double-checking
 - Migrating a system (unmanaged) crontab entry whose command referenced a script by its raw absolute path (rather than the plugin's `$KOHA_CRON_PATH`-relative form) always failed with "Command must use a script from the approved list", even with no script policy configured, since command validation only ever matched the relative form
