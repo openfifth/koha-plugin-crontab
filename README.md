@@ -12,7 +12,7 @@ existing lines, schedules and environment as well as adding new jobs all from wi
 The plugin provides a configuration page accessible via the "Configure" action in the Koha plugins interface. This page allows administrators to:
 
 - **User Allowlist**: Restrict access to the plugin by specifying a comma-separated list of borrowernumbers using the build in user search picker
-- **Command Allowlist**: Define which subset of KOHA_CRON commands/scripts are permitted to run (recommended for security)
+- **Script Policy**: Define which subset of KOHA_CRON commands/scripts are permitted to run, and optionally mark individual scripts as non-repeatable (only one scheduled instance at a time) or restricted to specific hours of the day (recommended for security)
 
 Both allowlists can also be configured via the koha-conf.xml file (see below).
 
@@ -24,6 +24,11 @@ This plugin can accept some settings stored in the koha configuration file, insi
 
 `<koha_plugin_crontab_cronfile>/etc/cron.d/koha-mylibrary</koha_plugin_crontab_cronfile>`
 By default the plugin will use the Koha user's crontab. If this option is set, it will use this file instead.
+
+### koha_plugin_crontab_script_policy
+
+`<koha_plugin_crontab_script_policy>/etc/koha/plugins/crontab-script-policy.yaml</koha_plugin_crontab_script_policy>`
+If set, points to a YAML file defining a server-enforced ceiling on which scripts may be scheduled and what scheduling constraints apply to them. The library's own Script Policy setting (configured via the Configure page) can only select a subset of what this file allows, and can only tighten (never loosen) any `non_repeatable`/`allowed_hours` it sets. See the plugin's Configure page for the schema. If this option is not set, the library's Script Policy setting alone governs, as before.
 
 ### koha_plugin_crontab_user_allowlist
 
