@@ -264,6 +264,9 @@
                                         <div id="script-description" class="alert alert-info" style="display: none;">
                                             <!-- Script description will be shown here -->
                                         </div>
+                                        <div id="script-policy-hint" class="alert alert-warning" style="display: none;">
+                                            <!-- Script policy constraints will be shown here -->
+                                        </div>
                                         <div id="script-options">
                                             <!-- Options will be dynamically added here -->
                                         </div>
@@ -478,6 +481,13 @@
                     ? '<span class="badge bg-success">Enabled</span>'
                     : '<span class="badge bg-secondary">Disabled</span>';
 
+                if (job.policy_violations && job.policy_violations.length > 0) {
+                    let violationLabels = job.policy_violations.map(function(v) {
+                        return v === 'non_repeatable' ? 'duplicate script' : 'outside allowed hours';
+                    }).join(', ');
+                    statusBadge += ' <span class="badge bg-warning text-dark" title="Violates script policy: ' + violationLabels + '"><i class="fa fa-exclamation-triangle"></i></span>';
+                }
+
                 let envVars = '';
                 if (job.environment && Object.keys(job.environment).length > 0) {
                     Object.keys(job.environment).forEach(function(key) {
@@ -646,6 +656,7 @@
             $('#base-script-path').val('');
             $('#script-params-container').hide();
             $('#script-description').hide();
+            $('#script-policy-hint').hide();
             $('#script-options').empty();
             currentScriptData = null;
         }
@@ -1110,6 +1121,20 @@
             // Show description
             if (scriptData.description) {
                 $('#script-description').html('<strong>' + scriptData.name + ':</strong> ' + scriptData.description).show();
+            }
+
+            // Show policy hint, if this script has scheduling constraints
+            if (scriptData.policy && (scriptData.policy.non_repeatable || scriptData.policy.allowed_hours)) {
+                let hints = [];
+                if (scriptData.policy.non_repeatable) {
+                    hints.push('this script may only be scheduled once across the crontab');
+                }
+                if (scriptData.policy.allowed_hours) {
+                    hints.push('it may only run during hours: ' + scriptData.policy.allowed_hours);
+                }
+                $('#script-policy-hint').html('<i class="fa fa-exclamation-triangle"></i> ' + hints.join('; ') + '.').show();
+            } else {
+                $('#script-policy-hint').hide();
             }
 
             // Build options UI
