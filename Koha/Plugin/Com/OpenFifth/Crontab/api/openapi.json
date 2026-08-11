@@ -697,6 +697,20 @@
                                         "description": {
                                             "type": "string",
                                             "description": "Brief description from POD"
+                                        },
+                                        "policy": {
+                                            "type": "object",
+                                            "description": "Script scheduling policy, present only for scripts with an exact policy match",
+                                            "properties": {
+                                                "non_repeatable": {
+                                                    "type": "boolean",
+                                                    "description": "Whether only one crontab entry may reference this script at a time"
+                                                },
+                                                "allowed_hours": {
+                                                    "type": "string",
+                                                    "description": "Comma-separated hours/ranges (0-23) this script may be scheduled within"
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -826,6 +840,20 @@
                                             "type": "boolean",
                                             "description": "Whether this accepts a variable number of arguments"
                                         }
+                                    }
+                                }
+                            },
+                            "policy": {
+                                "type": "object",
+                                "description": "Script scheduling policy, present only for scripts with an exact policy match",
+                                "properties": {
+                                    "non_repeatable": {
+                                        "type": "boolean",
+                                        "description": "Whether only one crontab entry may reference this script at a time"
+                                    },
+                                    "allowed_hours": {
+                                        "type": "string",
+                                        "description": "Comma-separated hours/ranges (0-23) this script may be scheduled within"
                                     }
                                 }
                             }
