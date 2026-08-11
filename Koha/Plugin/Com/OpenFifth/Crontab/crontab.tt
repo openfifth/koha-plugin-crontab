@@ -1515,7 +1515,13 @@
                 .filter(function(option) { return option.required; })
                 .filter(function(option) {
                     let prefix = '--' + option.name;
-                    return !params.some(function(p) { return p === prefix || p.indexOf(prefix + '=') === 0; });
+                    if (option.negatable) {
+                        // For negatable options, either --name or --no-name counts as present
+                        return !params.some(function(p) { return p === prefix || p === '--no-' + option.name; });
+                    } else {
+                        // For other options, --name or --name=value counts as present
+                        return !params.some(function(p) { return p === prefix || p.indexOf(prefix + '=') === 0; });
+                    }
                 });
 
             if (missingRequired.length > 0) {
