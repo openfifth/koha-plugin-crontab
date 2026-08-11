@@ -31,9 +31,12 @@ BEGIN {
 use base qw(Koha::Plugins::Base);
 
 use POSIX qw(strftime);
-use JSON;
+use JSON qw(encode_json decode_json);
+use YAML::XS qw(Load Dump);
 
 use C4::Context;
+use Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
+use Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script;
 
 our $VERSION         = '1.3.8';
 our $MINIMUM_VERSION = "22.11.00.000";
@@ -111,11 +114,19 @@ sub configure {
     unless ( $cgi->param('save') ) {
         my $template = $self->get_template( { file => 'configure.tt' } );
 
+        my $policy_yaml = $self->retrieve_data('script_policy');
+        my $policy_data = ( $policy_yaml && $policy_yaml =~ /\S/ ) ? Load($policy_yaml) : { scripts => [] };
+
+        my $crontab      = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new( { plugin => $self } );
+        my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => $crontab } );
+        my $server_policy = $script_model->get_server_policy();
+
         ## Grab the values we already have for our settings, if any exist
         $template->param(
             enable_logging   => $self->retrieve_data('enable_logging'),
             user_allowlist   => $self->retrieve_data('user_allowlist'),
-            script_allowlist => $self->retrieve_data('script_allowlist'),
+            script_policy    => encode_json($policy_data),
+            server_policy    => encode_json( { scripts => $server_policy } ),
             backup_retention => $self->retrieve_data('backup_retention') || 10,
         );
 
@@ -125,16 +136,68 @@ sub configure {
         # Validate backup_retention is between 1 and 100
         $backup_retention = 10 unless ($backup_retention && $backup_retention >= 1 && $backup_retention <= 100);
 
+        my $policy_json = $cgi->param('script_policy') || '{"scripts":[]}';
+        my $policy_data = eval { decode_json($policy_json) } || { scripts => [] };
+        my $policy_yaml = Dump($policy_data);
+
         $self->store_data(
             {
                 enable_logging   => $cgi->param('enable_logging'),
                 user_allowlist   => $cgi->param('user_allowlist'),
-                script_allowlist => $cgi->param('script_allowlist'),
+                script_policy    => $policy_yaml,
                 backup_retention => $backup_retention,
             }
         );
         $self->go_home();
     }
+}
+
+=head2 upgrade
+
+Plugin upgrade routine, run automatically by Koha::Plugins::Base when the
+installed version is behind the current one. Migrates the legacy
+plain-line 'script_allowlist' setting to the structured YAML
+'script_policy' setting.
+
+=cut
+
+sub upgrade {
+    my ($self) = @_;
+
+    my $legacy = $self->retrieve_data('script_allowlist');
+
+    if ( defined $legacy && $legacy =~ /\S/ ) {
+        my $yaml_text = $self->_convert_legacy_allowlist_text($legacy);
+        $self->store_data( { script_policy => $yaml_text } );
+    }
+
+    $self->store_data( { script_allowlist => undef } );
+
+    return 1;
+}
+
+=head2 _convert_legacy_allowlist_text
+
+Convert the legacy newline-separated script_allowlist text into the new
+YAML script_policy document shape. The legacy format never carried policy
+fields, so converted entries have none.
+
+    my $yaml_text = $plugin->_convert_legacy_allowlist_text($legacy_text);
+
+=cut
+
+sub _convert_legacy_allowlist_text {
+    my ( $self, $legacy_text ) = @_;
+
+    my @patterns = grep { /\S/ } split( /\r?\n/, $legacy_text // '' );
+
+    my @scripts = map {
+        my $path = $_;
+        $path =~ s/^\s+|\s+$//g;
+        { path => $path };
+    } @patterns;
+
+    return Dump( { scripts => \@scripts } );
 }
 
 sub install() {
