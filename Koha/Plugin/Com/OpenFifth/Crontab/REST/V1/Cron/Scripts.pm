@@ -72,6 +72,11 @@ sub get {
 
     my $script_name = $c->validation->param('name');
 
+    # Check if bypass_filter parameter is provided (for the configuration page,
+    # which needs option details for scripts not yet in the policy)
+    my $bypass_filter = $c->validation->param('bypass_filter') || 0;
+    my $options_arg = $bypass_filter ? { bypass_filter => 1 } : {};
+
     try {
         my $plugin  = Koha::Plugin::Com::OpenFifth::Crontab->new( {} );
         my $crontab = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new(
@@ -83,7 +88,7 @@ sub get {
           );
 
         # Get all scripts and find the requested one
-        my $scripts = $script_model->get_available_scripts();
+        my $scripts = $script_model->get_available_scripts($options_arg);
         my ($script) = grep { $_->{name} eq $script_name } @$scripts;
 
         unless ($script) {
@@ -97,6 +102,12 @@ sub get {
         my $doc    = $script_model->parse_script_documentation( $script->{path} );
         my $parsed = $script_model->parse_script_options( $script->{path} );
 
+        my $policy           = $script->{policy} || {};
+        my %required_lookup  = map { $_ => 1 } @{ $policy->{required_options} || [] };
+        my @options_with_req = map {
+            { %$_, required => $required_lookup{ $_->{name} } ? 1 : 0 }
+        } @{ $parsed->{options} };
+
         return $c->render(
             status  => 200,
             openapi => {
@@ -105,9 +116,9 @@ sub get {
                 type            => $script->{type},
                 description     => $doc->{name_brief} || '',
                 usage_text      => $doc->{usage_text} || '',
-                options         => $parsed->{options},
+                options         => \@options_with_req,
                 positional_args => $parsed->{positional_args},
-                policy          => $script->{policy} || {},
+                policy          => $policy,
             }
         );
     }

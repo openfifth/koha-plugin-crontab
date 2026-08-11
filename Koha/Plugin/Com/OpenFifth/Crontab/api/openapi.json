@@ -822,6 +822,13 @@
                                                 "allowed_hours": {
                                                     "type": "string",
                                                     "description": "Comma-separated hours/ranges (0-23) this script may be scheduled within"
+                                                },
+                                                "required_options": {
+                                                    "type": "array",
+                                                    "description": "Long option names that must have a value in this script's command",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
                                                 }
                                             }
                                         }
@@ -860,6 +867,14 @@
                     "description": "Script filename (with extension)",
                     "required": true,
                     "type": "string"
+                },
+                {
+                    "name": "bypass_filter",
+                    "in": "query",
+                    "description": "Bypass script policy filtering (used by configuration page to fetch option details for a script not yet in the policy)",
+                    "required": false,
+                    "type": "boolean",
+                    "default": false
                 }
             ],
             "responses": {
@@ -909,7 +924,7 @@
                                         },
                                         "required": {
                                             "type": "boolean",
-                                            "description": "Whether option value is required (= vs : modifier)"
+                                            "description": "Whether this option is required by script policy (required_options)"
                                         },
                                         "negatable": {
                                             "type": "boolean",
@@ -967,6 +982,13 @@
                                     "allowed_hours": {
                                         "type": "string",
                                         "description": "Comma-separated hours/ranges (0-23) this script may be scheduled within"
+                                    },
+                                    "required_options": {
+                                        "type": "array",
+                                        "description": "Long option names that must have a value in this script's command",
+                                        "items": {
+                                            "type": "string"
+                                        }
                                     }
                                 }
                             }
