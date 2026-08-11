@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-11
+
 ### Fixed
 - `GET /scripts/details` returning a 500 for any script without a script policy attached, breaking the script picker's parameter builder for most scripts
 - Script options were marked "required" based on Getopt::Long's `=`/`:` syntax, which only indicates whether a value is needed *if* the flag is used, not whether the flag itself is mandatory — this produced both false positives (options flagged required that scripts treat as optional) and an unenforced true positive (a genuinely mandatory option could still be saved blank). Required-ness is now driven entirely by an explicit `required_options` script policy field, curated by administrators and enforced both client- and server-side.
