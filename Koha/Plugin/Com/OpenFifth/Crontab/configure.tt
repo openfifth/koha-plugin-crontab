@@ -83,13 +83,16 @@
                                     </div>
                                 </li>
                                 <li>
-                                    <label for="script_picker">Script allowlist: </label>
+                                    <label for="script_picker">Script policy: </label>
                                     <select name="script_picker" id="script_picker" multiple="multiple"></select>
-                                    <input type="hidden" name="script_allowlist" id="script_allowlist" value="[% script_allowlist | html %]" />
+                                    <input type="hidden" name="script_policy" id="script_policy" value="[% script_policy | html %]" />
+                                    <input type="hidden" id="server_policy" value="[% server_policy | html %]" />
                                     <div class="hint">
                                         Search and select scripts to allow users to schedule. Leave empty to allow all scripts from KOHA_CRON_PATH.
                                         <br/><strong>Note:</strong> You can also type directory prefixes (e.g., <code>batch/</code>) to allow all scripts in that directory.
+                                        <br/><strong>Note:</strong> Exact scripts (not prefixes) can additionally be marked non-repeatable or restricted to specific hours below the picker.
                                     </div>
+                                    <div id="script_policy_panels"></div>
                                 </li>
                             </ol>
                         </fieldset>
@@ -198,8 +201,74 @@
                     });
                 }
 
-                // Initialize script allowlist select2
+                // Initialize script policy picker
                 let allScripts = [];
+                let libraryPolicyState = {};
+                let serverPolicy = {};
+
+                try {
+                    let serverPolicyData = JSON.parse($("#server_policy").val() || '{"scripts":[]}');
+                    (serverPolicyData.scripts || []).forEach(function(entry) {
+                        serverPolicy[entry.path] = entry;
+                    });
+                } catch (e) {
+                    console.error('Failed to parse server policy', e);
+                }
+
+                function isExactScript(path) {
+                    return allScripts.some(function(candidate) {
+                        let relative = candidate.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '');
+                        return relative === path || candidate.name === path;
+                    });
+                }
+
+                function renderPolicyPanels() {
+                    let selected = $("#script_picker").val() || [];
+                    let container = $("#script_policy_panels");
+                    container.empty();
+
+                    selected.filter(isExactScript).forEach(function(path) {
+                        let serverEntry = serverPolicy[path];
+                        let state = libraryPolicyState[path] || { non_repeatable: false, allowed_hours: '' };
+                        let locked = !!(serverEntry && serverEntry.non_repeatable);
+                        let nonRepeatable = locked || state.non_repeatable;
+                        let hoursLocked = !!(serverEntry && serverEntry.allowed_hours);
+                        let allowedHours = hoursLocked ? serverEntry.allowed_hours : state.allowed_hours;
+
+                        let panel = $(
+                            '<div class="card mb-2">' +
+                                '<div class="card-body py-2">' +
+                                    '<strong>' + escape_str(path) + '</strong><br>' +
+                                    '<div class="form-check form-check-inline">' +
+                                        '<input class="form-check-input policy-non-repeatable" type="checkbox" data-path="' + escape_str(path) + '"' +
+                                            (nonRepeatable ? ' checked' : '') + (locked ? ' disabled' : '') + '>' +
+                                        '<label class="form-check-label">Non-repeatable' + (locked ? ' (set by server administrator)' : '') + '</label>' +
+                                    '</div>' +
+                                    '<div class="form-group d-inline-block ms-3">' +
+                                        '<label class="me-1">Allowed hours:</label>' +
+                                        '<input type="text" class="form-control form-control-sm d-inline-block policy-allowed-hours" style="width:150px" data-path="' + escape_str(path) + '" placeholder="e.g. 1-5" value="' + escape_str(allowedHours) + '"' +
+                                            (hoursLocked ? ' disabled' : '') + '>' +
+                                        (hoursLocked ? '<small class="text-muted ms-1">(set by server administrator)</small>' : '') +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>'
+                        );
+
+                        container.append(panel);
+                    });
+
+                    container.find('.policy-non-repeatable').on('change', function() {
+                        let path = $(this).data('path');
+                        libraryPolicyState[path] = libraryPolicyState[path] || { non_repeatable: false, allowed_hours: '' };
+                        libraryPolicyState[path].non_repeatable = $(this).is(':checked');
+                    });
+
+                    container.find('.policy-allowed-hours').on('input', function() {
+                        let path = $(this).data('path');
+                        libraryPolicyState[path] = libraryPolicyState[path] || { non_repeatable: false, allowed_hours: '' };
+                        libraryPolicyState[path].allowed_hours = $(this).val();
+                    });
+                }
 
                 // Load all available scripts (with bypass_filter=1 to see all scripts for configuration)
                 $.ajax({
@@ -263,26 +332,42 @@
                         placeholder: "Select scripts or type directory prefixes (e.g., batch/)"
                     });
 
-                    // Load existing scripts if any
-                    let existingScripts = $("#script_allowlist").val();
-                    if (existingScripts) {
-                        let scripts = existingScripts.split(/\r?\n/).filter(s => s.trim());
-                        scripts.forEach(function(scriptPath) {
-                            scriptPath = scriptPath.trim();
-                            if (scriptPath) {
-                                // Check if it already exists in our data
-                                let existingOption = allScripts.find(s =>
-                                    s.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '') === scriptPath ||
-                                    s.name === scriptPath
-                                );
+                    // Load existing library-tier selections and policy
+                    let existingPolicy = { scripts: [] };
+                    try {
+                        existingPolicy = JSON.parse($("#script_policy").val() || '{"scripts":[]}');
+                    } catch (e) {
+                        console.error('Failed to parse existing script policy', e);
+                    }
 
-                                let displayText = existingOption ? existingOption.name : scriptPath;
-                                let option = new Option(displayText, scriptPath, true, true);
-                                $("#script_picker").append(option);
+                    (existingPolicy.scripts || []).forEach(function(entry) {
+                        libraryPolicyState[entry.path] = {
+                            non_repeatable: !!entry.non_repeatable,
+                            allowed_hours: entry.allowed_hours || ''
+                        };
+
+                        let existingOption = allScripts.find(s =>
+                            s.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '') === entry.path ||
+                            s.name === entry.path
+                        );
+
+                        let displayText = existingOption ? existingOption.name : entry.path;
+                        let option = new Option(displayText, entry.path, true, true);
+                        $("#script_picker").append(option);
+                    });
+                    $("#script_picker").trigger('change');
+
+                    renderPolicyPanels();
+
+                    $("#script_picker").on('change', function() {
+                        let selected = $(this).val() || [];
+                        Object.keys(libraryPolicyState).forEach(function(path) {
+                            if (selected.indexOf(path) === -1) {
+                                delete libraryPolicyState[path];
                             }
                         });
-                        $("#script_picker").trigger('change');
-                    }
+                        renderPolicyPanels();
+                    });
                 }
 
                 // Update hidden fields on form submit
@@ -295,13 +380,18 @@
                         $("#user_allowlist").val("");
                     }
 
-                    // Handle script allowlist
-                    let selectedScripts = $("#script_picker").val();
-                    if (selectedScripts && selectedScripts.length > 0) {
-                        $("#script_allowlist").val(selectedScripts.join("\n"));
-                    } else {
-                        $("#script_allowlist").val("");
-                    }
+                    // Handle script policy
+                    let selectedScripts = $("#script_picker").val() || [];
+                    let scriptsPayload = selectedScripts.map(function(path) {
+                        let state = libraryPolicyState[path] || { non_repeatable: false, allowed_hours: '' };
+                        let exact = isExactScript(path);
+                        return {
+                            path: path,
+                            non_repeatable: exact ? !!state.non_repeatable : false,
+                            allowed_hours: exact ? ( state.allowed_hours || '' ) : ''
+                        };
+                    });
+                    $("#script_policy").val(JSON.stringify({ scripts: scriptsPayload }));
                 });
             });
         </script>
