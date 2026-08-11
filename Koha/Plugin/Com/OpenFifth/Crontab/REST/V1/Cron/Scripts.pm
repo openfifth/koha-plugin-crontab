@@ -107,7 +107,7 @@ sub get {
                 usage_text      => $doc->{usage_text} || '',
                 options         => $parsed->{options},
                 positional_args => $parsed->{positional_args},
-                policy          => $script->{policy},
+                policy          => $script->{policy} || {},
             }
         );
     }
