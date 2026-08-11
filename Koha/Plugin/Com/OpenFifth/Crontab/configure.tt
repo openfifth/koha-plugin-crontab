@@ -222,18 +222,86 @@
                     });
                 }
 
+                function emptyLibraryState() {
+                    return { non_repeatable: false, allowed_hours: '', required_options: [] };
+                }
+
+                let scriptOptionsCache = {};
+
+                function fetchMissingScriptOptions(paths, callback) {
+                    let toFetch = paths.filter(function(path) {
+                        return !scriptOptionsCache.hasOwnProperty(path);
+                    });
+
+                    if (!toFetch.length) {
+                        callback();
+                        return;
+                    }
+
+                    let requests = toFetch.map(function(path) {
+                        let match = allScripts.find(function(s) {
+                            let relative = s.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '');
+                            return relative === path || s.name === path;
+                        });
+
+                        if (!match || match.type !== 'perl') {
+                            scriptOptionsCache[path] = [];
+                            return $.Deferred().resolve().promise();
+                        }
+
+                        return $.ajax({
+                            url: '/api/v1/contrib/crontab/scripts/details',
+                            method: 'GET',
+                            data: { name: match.name, bypass_filter: 1 }
+                        }).done(function(data) {
+                            scriptOptionsCache[path] = (data.options || []).filter(function(o) {
+                                return o.type !== 'boolean' && o.type !== 'incremental';
+                            });
+                        }).fail(function() {
+                            scriptOptionsCache[path] = [];
+                        });
+                    });
+
+                    $.when.apply($, requests).always(callback);
+                }
+
                 function renderPolicyPanels() {
-                    let selected = $("#script_picker").val() || [];
+                    let selected = ($("#script_picker").val() || []).filter(isExactScript);
+                    fetchMissingScriptOptions(selected, function() {
+                        renderPolicyPanelsNow(selected);
+                    });
+                }
+
+                function renderPolicyPanelsNow(selected) {
                     let container = $("#script_policy_panels");
                     container.empty();
 
-                    selected.filter(isExactScript).forEach(function(path) {
-                        let serverEntry = serverPolicy[path];
-                        let state = libraryPolicyState[path] || { non_repeatable: false, allowed_hours: '' };
-                        let locked = !!(serverEntry && serverEntry.non_repeatable);
+                    selected.forEach(function(path) {
+                        let serverEntry = serverPolicy[path] || {};
+                        let state = libraryPolicyState[path] || emptyLibraryState();
+                        let locked = !!serverEntry.non_repeatable;
                         let nonRepeatable = locked || state.non_repeatable;
-                        let hoursLocked = !!(serverEntry && serverEntry.allowed_hours);
+                        let hoursLocked = !!serverEntry.allowed_hours;
                         let allowedHours = hoursLocked ? serverEntry.allowed_hours : state.allowed_hours;
+                        let serverRequired = serverEntry.required_options || [];
+                        let libraryRequired = state.required_options || [];
+                        let scriptOptions = scriptOptionsCache[path] || [];
+
+                        let requiredHtml = '';
+                        if (scriptOptions.length) {
+                            requiredHtml = '<div class="form-group d-block mt-2"><label class="d-block">Required options:</label>';
+                            scriptOptions.forEach(function(option) {
+                                let isServerRequired = serverRequired.indexOf(option.name) !== -1;
+                                let checked = isServerRequired || libraryRequired.indexOf(option.name) !== -1;
+                                requiredHtml +=
+                                    '<div class="form-check form-check-inline">' +
+                                        '<input class="form-check-input policy-required-option" type="checkbox" data-path="' + escape_str(path) + '" data-option="' + escape_str(option.name) + '"' +
+                                            (checked ? ' checked' : '') + (isServerRequired ? ' disabled' : '') + '>' +
+                                        '<label class="form-check-label">--' + escape_str(option.name) + (isServerRequired ? ' (set by server administrator)' : '') + '</label>' +
+                                    '</div>';
+                            });
+                            requiredHtml += '</div>';
+                        }
 
                         let panel = $(
                             '<div class="card mb-2">' +
@@ -250,6 +318,7 @@
                                             (hoursLocked ? ' disabled' : '') + '>' +
                                         (hoursLocked ? '<small class="text-muted ms-1">(set by server administrator)</small>' : '') +
                                     '</div>' +
+                                    requiredHtml +
                                 '</div>' +
                             '</div>'
                         );
@@ -259,14 +328,27 @@
 
                     container.find('.policy-non-repeatable').on('change', function() {
                         let path = $(this).data('path');
-                        libraryPolicyState[path] = libraryPolicyState[path] || { non_repeatable: false, allowed_hours: '' };
+                        libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
                         libraryPolicyState[path].non_repeatable = $(this).is(':checked');
                     });
 
                     container.find('.policy-allowed-hours').on('input', function() {
                         let path = $(this).data('path');
-                        libraryPolicyState[path] = libraryPolicyState[path] || { non_repeatable: false, allowed_hours: '' };
+                        libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
                         libraryPolicyState[path].allowed_hours = $(this).val();
+                    });
+
+                    container.find('.policy-required-option').on('change', function() {
+                        let path = $(this).data('path');
+                        let optionName = $(this).data('option');
+                        libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
+                        let list = libraryPolicyState[path].required_options || [];
+                        if ($(this).is(':checked')) {
+                            if (list.indexOf(optionName) === -1) list.push(optionName);
+                        } else {
+                            list = list.filter(function(n) { return n !== optionName; });
+                        }
+                        libraryPolicyState[path].required_options = list;
                     });
                 }
 
@@ -343,7 +425,8 @@
                     (existingPolicy.scripts || []).forEach(function(entry) {
                         libraryPolicyState[entry.path] = {
                             non_repeatable: !!entry.non_repeatable,
-                            allowed_hours: entry.allowed_hours || ''
+                            allowed_hours: entry.allowed_hours || '',
+                            required_options: entry.required_options || []
                         };
 
                         let existingOption = allScripts.find(s =>
@@ -383,12 +466,13 @@
                     // Handle script policy
                     let selectedScripts = $("#script_picker").val() || [];
                     let scriptsPayload = selectedScripts.map(function(path) {
-                        let state = libraryPolicyState[path] || { non_repeatable: false, allowed_hours: '' };
+                        let state = libraryPolicyState[path] || emptyLibraryState();
                         let exact = isExactScript(path);
                         return {
                             path: path,
                             non_repeatable: exact ? !!state.non_repeatable : false,
-                            allowed_hours: exact ? ( state.allowed_hours || '' ) : ''
+                            allowed_hours: exact ? ( state.allowed_hours || '' ) : '',
+                            required_options: exact ? ( state.required_options || [] ) : []
                         };
                     });
                     $("#script_policy").val(JSON.stringify({ scripts: scriptsPayload }));

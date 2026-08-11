@@ -8,9 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `GET /scripts/details` returning a 500 for any script without a script policy attached, breaking the script picker's parameter builder for most scripts
+- Script options were marked "required" based on Getopt::Long's `=`/`:` syntax, which only indicates whether a value is needed *if* the flag is used, not whether the flag itself is mandatory — this produced both false positives (options flagged required that scripts treat as optional) and an unenforced true positive (a genuinely mandatory option could still be saved blank). Required-ness is now driven entirely by an explicit `required_options` script policy field, curated by administrators and enforced both client- and server-side.
 
 ### Added
-- Script policy: mark individual allowed scripts as non-repeatable (only one scheduled instance at a time) or restricted to specific hours of the day
+- Script policy: mark individual allowed scripts as non-repeatable (only one scheduled instance at a time), restricted to specific hours of the day, or as requiring specific command-line options to have a value before a job can be saved
 - Optional server-administrator-controlled script policy file (`koha_plugin_crontab_script_policy` koha-conf.xml entry) that acts as a ceiling/floor on the library's own script policy settings
 - Warning badge on the Managed Jobs table for jobs that currently violate script policy (existing jobs are never blocked or altered, only flagged)
 - Migrate a system (unmanaged) crontab entry into a plugin-managed job directly from the System Jobs tab, preserving its schedule, command, and enabled state
