@@ -275,6 +275,159 @@ sub add {
     };
 }
 
+=head3 migrate
+
+Migrate an unmanaged (system) crontab entry into a plugin-managed job
+
+=cut
+
+sub migrate {
+    my $c = shift->openapi->valid_input or return;
+
+    if ( my $r = _check_user_allowlist($c) ) { return $r; }
+
+    my $plugin  = Koha::Plugin::Com::OpenFifth::Crontab->new( {} );
+    my $logging = $plugin->retrieve_data('enable_logging') // 1;
+
+    my $body = $c->req->json;
+
+    for my $field (qw/schedule command/) {
+        unless ( $body->{$field} ) {
+            return $c->render(
+                status  => 400,
+                openapi => { error => "Missing required field: $field" }
+            );
+        }
+    }
+
+    my $comments = $body->{comments} || [];
+
+    try {
+        my $crontab = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new(
+            { plugin => $plugin, }
+        );
+        my $job_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Job->new(
+            { crontab => $crontab }
+        );
+        my $script_model =
+          Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new(
+            { crontab => $crontab }
+          );
+
+        # Validate command uses approved script, exactly as `add` does
+        my $validation = $script_model->validate_command( $body->{command} );
+        unless ( $validation->{valid} ) {
+            return $c->render(
+                status  => 400,
+                openapi => { error => $validation->{error} }
+            );
+        }
+
+        if ( my $policy = $validation->{policy} ) {
+            my $all_entries = $job_model->get_all_crontab_entries();
+
+            # Exclude the entry being migrated from its own duplicate/hours scan
+            my @other_entries =
+              grep { !$job_model->entry_matches( $_, $body->{schedule}, $body->{command}, $comments ) }
+              @$all_entries;
+
+            if ( $policy->{non_repeatable} ) {
+                my $check = $script_model->check_non_repeatable( $validation->{script}, \@other_entries, undef );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
+            }
+
+            if ( $policy->{allowed_hours} ) {
+                my $check = $script_model->check_allowed_hours( $policy->{allowed_hours}, $body->{schedule} );
+                unless ( $check->{valid} ) {
+                    return $c->render( status => 400, openapi => { error => $check->{error} } );
+                }
+            }
+        }
+
+        my $job_id      = $job_model->generate_job_id();
+        my $now         = strftime( "%Y-%m-%d %H:%M:%S", localtime );
+        my $description = join( "\n", map { my $line = $_; $line =~ s/^\s*#\s?//; $line } @$comments );
+        my $migrated_job;
+
+        my $result = $crontab->safely_modify_crontab(
+            sub {
+                my ($ct) = @_;
+
+                my ( $block, $event ) =
+                  $job_model->find_unmanaged_entry( $ct, $body->{schedule}, $body->{command}, $comments );
+                unless ($block) {
+                    die "Entry not found";
+                }
+
+                my $was_enabled = $event->active ? 1 : 0;
+
+                $job_model->extract_event_from_block( $ct, $block, $event );
+
+                my $new_block = $job_model->create_job_block(
+                    {
+                        id          => $job_id,
+                        name        => $validation->{script}->{name},
+                        description => $description,
+                        schedule    => $body->{schedule},
+                        command     => $body->{command},
+                        enabled     => $was_enabled,
+                        created     => $now,
+                        updated     => $now,
+                    }
+                );
+
+                $ct->last($new_block);
+
+                $migrated_job = {
+                    name    => $validation->{script}->{name},
+                    enabled => $was_enabled,
+                };
+
+                return 1;
+            }
+        );
+
+        unless ( $result->{success} ) {
+            if ( $result->{error} =~ /Entry not found/ ) {
+                return $c->render(
+                    status  => 404,
+                    openapi => { error => "Entry not found" }
+                );
+            }
+            die $result->{error};
+        }
+
+        logaction( 'SYSTEMPREFERENCE', 'ADD', $job_id,
+            "CrontabPlugin: Migrated system job to managed job '" . $migrated_job->{name} . "'" )
+          if $logging;
+
+        return $c->render(
+            status  => 201,
+            openapi => {
+                id          => $job_id,
+                name        => $migrated_job->{name},
+                description => $description,
+                schedule    => $body->{schedule},
+                command     => $body->{command},
+                enabled     => $migrated_job->{enabled}
+                ? Mojo::JSON->true
+                : Mojo::JSON->false,
+                environment => {},
+                created_at  => $now,
+                updated_at  => $now
+            }
+        );
+    }
+    catch {
+        return $c->render(
+            status  => 500,
+            openapi => { error => "Failed to migrate job: $_" }
+        );
+    };
+}
+
 =head3 update
 
 Update an existing cron job

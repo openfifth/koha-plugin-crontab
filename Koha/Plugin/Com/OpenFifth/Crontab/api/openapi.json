@@ -504,6 +504,112 @@
             }
         }
     },
+    "/jobs/migrate": {
+        "post": {
+            "x-mojo-to": "Com::OpenFifth::Crontab::REST::V1::Cron::Jobs#migrate",
+            "operationId": "migrateCrontabJob",
+            "tags": [
+                "cronjobs"
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "consumes": [
+                "application/json"
+            ],
+            "parameters": [
+                {
+                    "name": "body",
+                    "in": "body",
+                    "required": true,
+                    "description": "Identifies the exact unmanaged crontab entry to migrate",
+                    "schema": {
+                        "type": "object",
+                        "required": [
+                            "schedule",
+                            "command"
+                        ],
+                        "properties": {
+                            "schedule": {
+                                "type": "string",
+                                "description": "Cron schedule expression of the entry to migrate"
+                            },
+                            "command": {
+                                "type": "string",
+                                "description": "Command of the entry to migrate. Must use a script from the approved scripts list."
+                            },
+                            "comments": {
+                                "type": "array",
+                                "description": "Raw comment lines above the entry, as returned by /crontab/all, used to uniquely identify it",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            "responses": {
+                "201": {
+                    "description": "Entry migrated to a managed job successfully",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "description": "Unique job identifier"
+                            },
+                            "name": {
+                                "type": "string",
+                                "description": "Human-readable job name"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Optional job description"
+                            },
+                            "schedule": {
+                                "type": "string",
+                                "description": "Cron schedule expression"
+                            },
+                            "command": {
+                                "type": "string",
+                                "description": "Command to execute"
+                            },
+                            "enabled": {
+                                "type": "boolean",
+                                "description": "Whether the job is enabled"
+                            },
+                            "environment": {
+                                "type": "object",
+                                "description": "Environment variables for the job"
+                            },
+                            "created_at": {
+                                "description": "Job creation timestamp"
+                            },
+                            "updated_at": {
+                                "description": "Job last update timestamp"
+                            }
+                        }
+                    }
+                },
+                "400": {
+                    "description": "Bad request"
+                },
+                "401": {
+                    "description": "Authentication required"
+                },
+                "403": {
+                    "description": "Access forbidden"
+                },
+                "404": {
+                    "description": "Entry not found"
+                },
+                "500": {
+                    "description": "Internal server error"
+                }
+            }
+        }
+    },
     "/backup": {
         "get": {
             "x-mojo-to": "Com::OpenFifth::Crontab::REST::V1::Cron::Jobs#backup",
