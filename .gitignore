@@ -54,3 +54,6 @@ inc/
 
 # Profiling
 nytprof.out
+
+# Git worktrees
+.worktrees/
