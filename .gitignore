@@ -57,3 +57,6 @@ nytprof.out
 
 # Git worktrees
 .worktrees/
+
+# Local browser-automation artifacts (Playwright MCP)
+.playwright-mcp/
