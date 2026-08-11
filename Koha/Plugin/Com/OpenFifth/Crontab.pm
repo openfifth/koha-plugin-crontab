@@ -115,7 +115,7 @@ sub configure {
         my $template = $self->get_template( { file => 'configure.tt' } );
 
         my $policy_yaml = $self->retrieve_data('script_policy');
-        my $policy_data = ( $policy_yaml && $policy_yaml =~ /\S/ ) ? Load($policy_yaml) : { scripts => [] };
+        my $policy_data = ( $policy_yaml && $policy_yaml =~ /\S/ ) ? ( eval { Load($policy_yaml) } || { scripts => [] } ) : { scripts => [] };
 
         my $crontab      = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new( { plugin => $self } );
         my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => $crontab } );
