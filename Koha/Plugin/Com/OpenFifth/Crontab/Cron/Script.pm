@@ -560,6 +560,106 @@ sub validate_command {
     return { valid => 1, script => $matched_script };
 }
 
+=head2 _expand_cron_field
+
+Expand a single cron schedule field (e.g. the hour field) into the concrete
+set of integer values it matches, within [$min, $max]. Supports '*',
+comma-separated lists, ranges ('a-b'), and step syntax ('*/n', 'a-b/n').
+Unrecognised tokens are silently skipped.
+
+    my $values = $script->_expand_cron_field( '1-10/2', 0, 23 );
+
+Returns a hashref of { integer => 1 }.
+
+=cut
+
+sub _expand_cron_field {
+    my ( $self, $field, $min, $max ) = @_;
+
+    my %values;
+    return \%values unless defined $field && length $field;
+
+    for my $part ( split /,/, $field ) {
+        my ( $range_part, $step ) = split m{/}, $part, 2;
+        $step = ( defined $step && $step =~ /^\d+$/ && $step > 0 ) ? $step : 1;
+
+        my ( $range_min, $range_max );
+        if ( $range_part eq '*' ) {
+            ( $range_min, $range_max ) = ( $min, $max );
+        }
+        elsif ( $range_part =~ /^(\d+)-(\d+)$/ ) {
+            ( $range_min, $range_max ) = ( $1, $2 );
+        }
+        elsif ( $range_part =~ /^(\d+)$/ ) {
+            ( $range_min, $range_max ) = ( $1, $1 );
+        }
+        else {
+            next;
+        }
+
+        for ( my $v = $range_min; $v <= $range_max; $v += $step ) {
+            $values{$v} = 1 if $v >= $min && $v <= $max;
+        }
+    }
+
+    return \%values;
+}
+
+=head2 _expand_cron_hour_field
+
+Convenience wrapper around C<_expand_cron_field> fixed to the valid hour
+range (0-23).
+
+    my $hours = $script->_expand_cron_hour_field('*/4');
+
+=cut
+
+sub _expand_cron_hour_field {
+    my ( $self, $field ) = @_;
+
+    return $self->_expand_cron_field( $field, 0, 23 );
+}
+
+=head2 _expand_allowed_hours
+
+Expand an C<allowed_hours> policy spec (comma-separated single hours and/or
+inclusive ranges, e.g. '1-5' or '0,12,22-2') into the concrete set of hours
+0-23 it permits. A range where the second number is smaller than the first
+wraps past midnight (e.g. '22-2' => 22,23,0,1,2).
+
+    my $hours = $script->_expand_allowed_hours('22-2');
+
+Returns a hashref of { integer => 1 }.
+
+=cut
+
+sub _expand_allowed_hours {
+    my ( $self, $spec ) = @_;
+
+    my %values;
+    return \%values unless defined $spec && $spec =~ /\S/;
+
+    for my $part ( split /,/, $spec ) {
+        $part =~ s/^\s+|\s+$//g;
+
+        if ( $part =~ /^(\d+)-(\d+)$/ ) {
+            my ( $start, $end ) = ( $1, $2 );
+            if ( $start <= $end ) {
+                $values{$_} = 1 for $start .. $end;
+            }
+            else {
+                $values{$_} = 1 for ( $start .. 23 );
+                $values{$_} = 1 for ( 0 .. $end );
+            }
+        }
+        elsif ( $part =~ /^(\d+)$/ ) {
+            $values{$1} = 1;
+        }
+    }
+
+    return \%values;
+}
+
 1;
 
 =head1 AUTHOR
