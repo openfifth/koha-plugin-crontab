@@ -49,6 +49,13 @@
                                         },
                                         "updated_at": {
                                             "description": "Job last update timestamp"
+                                        },
+                                        "policy_violations": {
+                                            "type": "array",
+                                            "description": "Script policy constraints this job currently violates (non_repeatable, allowed_hours); empty when compliant",
+                                            "items": {
+                                                "type": "string"
+                                            }
                                         }
                                     }
                                 }

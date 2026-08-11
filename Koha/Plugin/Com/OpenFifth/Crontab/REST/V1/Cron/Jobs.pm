@@ -41,20 +41,44 @@ sub list {
         my $job_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Job->new(
             { crontab => $crontab }
         );
+        my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new(
+            { crontab => $crontab }
+        );
 
-        my $jobs      = $job_model->get_plugin_managed_jobs();
+        my $jobs        = $job_model->get_plugin_managed_jobs();
+        my $all_entries = $job_model->get_all_crontab_entries();
+
         my @jobs_data = map {
-            {
-                id          => $_->{id},
-                name        => $_->{name},
-                description => $_->{description},
-                schedule    => $_->{schedule},
-                command     => $_->{command},
-                enabled => $_->{enabled} ? Mojo::JSON->true : Mojo::JSON->false,
-                environment => $_->{environment},
-                created_at  => $_->{created},
-                updated_at  => $_->{updated}
+            my $job = $_;
+
+            my @violations;
+            my $lookup = $script_model->validate_command( $job->{command} );
+            if ( $lookup->{valid} && $lookup->{policy} ) {
+                my $policy = $lookup->{policy};
+
+                if ( $policy->{non_repeatable} ) {
+                    my $check = $script_model->check_non_repeatable( $lookup->{script}, $all_entries, $job->{id} );
+                    push @violations, 'non_repeatable' unless $check->{valid};
+                }
+
+                if ( $policy->{allowed_hours} ) {
+                    my $check = $script_model->check_allowed_hours( $policy->{allowed_hours}, $job->{schedule} );
+                    push @violations, 'allowed_hours' unless $check->{valid};
+                }
             }
+
+            {
+                id                => $job->{id},
+                name              => $job->{name},
+                description       => $job->{description},
+                schedule          => $job->{schedule},
+                command           => $job->{command},
+                enabled           => $job->{enabled} ? Mojo::JSON->true : Mojo::JSON->false,
+                environment       => $job->{environment},
+                created_at        => $job->{created},
+                updated_at        => $job->{updated},
+                policy_violations => \@violations,
+            };
         } @$jobs;
 
         return $c->render(
