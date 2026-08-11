@@ -38,7 +38,7 @@ use C4::Context;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script;
 
-our $VERSION         = '1.3.8';
+our $VERSION         = '1.4.0';
 our $MINIMUM_VERSION = "22.11.00.000";
 
 our $metadata = {
@@ -46,7 +46,7 @@ our $metadata = {
     author          => 'Martin Renvoize',
     description     => 'Script scheduling',
     date_authored   => '2023-04-25',
-    date_updated    => '2026-06-26',
+    date_updated    => '2026-08-11',
     minimum_version => $MINIMUM_VERSION,
     maximum_version => undef,
     version         => $VERSION,
