@@ -546,10 +546,14 @@ sub validate_command {
     # Get list of available scripts
     my $available_scripts = $self->get_available_scripts();
 
-    # Try to match against available scripts
+    # Try to match against available scripts. A script may be referenced
+    # either by its $KOHA_CRON_PATH-relative form (as the plugin writes it)
+    # or by its raw resolved absolute path (as pre-existing/system crontab
+    # entries typically do) - both are equally valid references to the same
+    # approved script.
     my $matched_script;
     for my $script (@$available_scripts) {
-        if ( $script->{relative_path} eq $script_path ) {
+        if ( $script->{relative_path} eq $script_path || $script->{path} eq $script_path ) {
             $matched_script = $script;
             last;
         }

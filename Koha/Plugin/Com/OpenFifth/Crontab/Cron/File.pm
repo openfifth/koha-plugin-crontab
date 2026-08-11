@@ -340,9 +340,14 @@ sub validate {
                     return 0;
                 }
 
-                # Validate each field has allowed characters
+                # Validate each field has allowed characters. Month/day-of-week
+                # fields may use 3-letter name abbreviations (e.g. Mon, Jan),
+                # which Config::Crontab itself accepts (see RE_DM/RE_DTMOY/
+                # RE_DTDOW in lib/Config/Crontab.pm) - this check must stay at
+                # least as permissive or it rejects schedules the underlying
+                # parser considers valid.
                 for my $field (@fields) {
-                    unless ( $field =~ /^[\d\*\/\-\,]+$/ ) {
+                    unless ( $field =~ /^[\w\*\/\-\,]+$/ ) {
                         warn "Invalid cron field: $field";
                         return 0;
                     }
