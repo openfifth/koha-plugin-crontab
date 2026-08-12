@@ -51,7 +51,7 @@ sub init {
     $self->strict(0);
     $self->blocks([]);
     $self->error('');
-    $self->system(0);
+    $self->is_system_crontab(0);
     $self->owner('');
     $self->owner_re( '[^a-zA-Z0-9\._-]' );
 
@@ -59,7 +59,7 @@ sub init {
     $self->mode(     $args{'-mode'})     if exists $args{'-mode'};
     $self->squeeze(  $args{'-squeeze'})  if exists $args{'-squeeze'};
     $self->strict(   $args{'-strict'})   if exists $args{'-strict'};
-    $self->system(   $args{'-system'})   if exists $args{'-system'};
+    $self->is_system_crontab(   $args{'-system'})   if exists $args{'-system'};
     $self->owner(    $args{'-owner'})    if exists $args{'-owner'};
     $self->owner_re( $args{'-owner_re'}) if exists $args{'-owner_re'};
 
@@ -77,12 +77,12 @@ sub read {
     $self->mode(     $args{'-mode'})     if exists $args{'-mode'};
     $self->squeeze(  $args{'-squeeze'})  if exists $args{'-squeeze'};
     $self->strict(   $args{'-strict'})   if exists $args{'-strict'};
-    $self->system(   $args{'-system'})   if exists $args{'-system'};
+    $self->is_system_crontab(   $args{'-system'})   if exists $args{'-system'};
     $self->owner(    $args{'-owner'})    if exists $args{'-owner'};
     $self->owner_re( $args{'-owner_re'}) if exists $args{'-owner_re'};
 
     ## set default system crontab
-    if( $self->system && ! $self->file ) {
+    if( $self->is_system_crontab && ! $self->file ) {
 	$self->file('/etc/crontab');
     }
 
@@ -145,7 +145,7 @@ sub read {
 	local $_;
 	while( <$fh> ) {
 	    chomp;
-	    $self->last( new Config::Crontab::Block( -system => $self->system,
+	    $self->last( new Config::Crontab::Block( -system => $self->is_system_crontab,
 						     -data   => $_ ) );
 	}
     }
@@ -902,7 +902,7 @@ Examples:
     ## disable strict (default)
     $ct->strict(0);
 
-=head2 system([boolean])
+=head2 is_system_crontab([boolean])
 
 B<system> tells B<config::crontab> to assume that the crontab object
 is after the pattern described in L<crontab(5)> with an extra I<user>
@@ -1343,11 +1343,11 @@ sub init {
 
     $self->lines([]);  ## initialize
     $self->strict(0);
-    $self->system(0);
+    $self->is_system_crontab(0);
 
     $self->lines($args{'-lines'})   if defined $args{'-lines'};
     $self->strict($args{'-strict'}) if defined $args{'-strict'};
-    $self->system($args{'-system'}) if defined $args{'-system'};
+    $self->is_system_crontab($args{'-system'}) if defined $args{'-system'};
 
     my $rv = 1;
     if( defined $args{'-data'} ) {
@@ -1383,7 +1383,7 @@ sub data {
 	for my $line ( @lines ) {
 	    my $obj;
 	    if( $obj = new Config::Crontab::Event(-data => $line, 
-						  -system => $self->system) ) {
+						  -system => $self->is_system_crontab) ) {
 	    }
 
 	    elsif( $obj = new Config::Crontab::Env(-data => $line) ) {
@@ -1940,7 +1940,7 @@ sub init {
     ## set defaults
     $self->active(1);
     $self->nolog(0);
-    $self->system(0);
+    $self->is_system_crontab(0);
 
     $self->special(undef);
     $self->minute('*');
@@ -1951,7 +1951,7 @@ sub init {
     $self->user('');
 
     ## get arguments and set new defaults
-    $self->system($args{'-system'})     if defined $args{'-system'};  ## -system arg overrides implicits
+    $self->is_system_crontab($args{'-system'})     if defined $args{'-system'};  ## -system arg overrides implicits
     unless( $args{'-data'} ) {
 	$self->minute($args{'-minute'})     if defined $args{'-minute'};
 	$self->hour($args{'-hour'})         if defined $args{'-hour'};
@@ -1960,7 +1960,7 @@ sub init {
 	$self->dow($args{'-dow'})           if defined $args{'-dow'};
 
 	$self->user($args{'-user'})         if defined $args{'-user'};
-	$self->system(1)                    if defined $args{'-user'};
+	$self->is_system_crontab(1)                    if defined $args{'-user'};
 
 	$self->special($args{'-special'})   if defined $args{'-special'};
 	$self->datetime($args{'-datetime'}) if defined $args{'-datetime'};
@@ -1984,8 +1984,8 @@ sub data {
 
 	my @matches = ();
 
-	## system (user) syntax
-	if( $self->system ) {
+	## system-crontab (user) syntax
+	if( $self->is_system_crontab ) {
 	    if( @matches = $data =~ SYS_SPECIAL or
 		@matches = $data =~ SYS_DATETIME ) {
 		my $active = shift @matches;
@@ -2003,7 +2003,7 @@ sub data {
 	    }
 	}
 
-	## non-system (regular user crontab style) syntax
+	## non-system-crontab (regular user crontab style) syntax
 	else {
 	    ## is a command
 	    if( @matches = $data =~ SPECIAL or
@@ -2026,13 +2026,13 @@ sub data {
 
     my $fmt = "%s";
     $fmt .= ( $self->command
-	      ? ( $self->system 
+	      ? ( $self->is_system_crontab 
 		  ? ($self->special ? "\t\t\t\t\t%s" : "\t%s") . ( $self->user ? "\t%s" : '' )
 		  : " %s" )
 	      : '' );
 
     return sprintf($fmt, ( $self->command
-			   ? ( $self->datetime, ($self->system && $self->user ? $self->user : ()))
+			   ? ( $self->datetime, ($self->is_system_crontab && $self->user ? $self->user : ()))
 			   : () ), $self->command )
 }
 
@@ -2107,7 +2107,7 @@ sub datetime {
 	return $self->special;
     }
 
-    my $fmt = ( $self->system 
+    my $fmt = ( $self->is_system_crontab 
 		? "%s\t%s\t%s\t%s\t%s"
 		: "%s %s %s %s %s" );
 
@@ -2118,7 +2118,7 @@ sub datetime {
 sub user {
     my $self = shift;
     if( @_ ) {  ## setting a value, set system too
-	$self->system($_[0] ? 1 : 0);
+	$self->is_system_crontab($_[0] ? 1 : 0);
 	$self->{_user} = shift;
     }
     return ( defined $self->{_user} ? $self->{_user} : '' );
@@ -2549,14 +2549,14 @@ The B<user> field is only accessible when the crontab object was
 created or parsed with B<system> mode enabled (see L</"system">
 above).
 
-=head2 system([boolean])
+=head2 is_system_crontab([boolean])
 
 When set, will parse a B<-data> string looking for a username before
 the command as described in L<crontab(5)>.
 
 Example:
 
-    $event->system(1);
+    $event->is_system_crontab(1);
     $event->data('0 2 * * * joeuser /bin/foo --args');
 
 This will set the user as 'joeuser' and the command as '/bin/foo
