@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-08-12
+
 ### Fixed
 - Plugin metadata was missing a `license` field and declared `minimum_version` as a 4-part string (`22.11.00.000`) that doesn't match any real Koha release tag; both blocked the plugin store's automated checks
 - Bundled `Config::Crontab`'s `write()`/`remove_tab()` shelled out via backticks with the crontab owner interpolated directly into the command string (a latent shell-injection risk, though unreachable via this plugin's own usage, which always writes the crontab file directly); switched to argv-based `open(..., '-|', @cmd)` calls

@@ -38,7 +38,7 @@ use C4::Context;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script;
 
-our $VERSION         = '1.6.2';
+our $VERSION         = '1.6.3';
 our $MINIMUM_VERSION = "22.11.00";
 
 our $metadata = {
