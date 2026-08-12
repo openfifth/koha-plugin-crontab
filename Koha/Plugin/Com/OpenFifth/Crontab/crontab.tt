@@ -32,6 +32,15 @@
     font-size: 0.75rem;
     border-radius: 0.25rem;
 }
+/* Koha's staff-global.css sets `input[type=checkbox] { height: unset; }`, which is
+   more specific than Bootstrap 5's `.form-check-input` rule and collapses these
+   checkboxes to a sliver. Restore Bootstrap's sizing for ours specifically
+   (margin is intentionally left alone: Bootstrap's `.form-check .form-check-input`
+   already wins the cascade for margin-left, and overriding it here would break it). */
+#crontab_plugin_admin .form-check-input[type="checkbox"] {
+    width: 1em;
+    height: 1em;
+}
 </style>
 </head>
 

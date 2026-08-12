@@ -5,6 +5,17 @@
 [% INCLUDE 'doc-head-open.inc' %]
 <title>Crontab: Configure &rsaquo; Plugins &rsaquo; Administration &rsaquo; Koha</title>
 [% INCLUDE 'doc-head-close.inc' %]
+<style>
+/* Koha's staff-global.css sets `input[type=checkbox] { height: unset; }`, which is
+   more specific than Bootstrap 5's `.form-check-input` rule and collapses these
+   checkboxes to a sliver. Restore Bootstrap's sizing for ours specifically
+   (margin is intentionally left alone: Bootstrap's `.form-check .form-check-input`
+   already wins the cascade for margin-left, and overriding it here would break it). */
+#crontab_plugin_configure .form-check-input[type="checkbox"] {
+    width: 1em;
+    height: 1em;
+}
+</style>
 </head>
 
 <body id="crontab_plugin_configure" class="plugin">
