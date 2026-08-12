@@ -196,7 +196,7 @@ sub backup_crontab {
     }
     catch {
         warn "Failed to create backup: $_";
-        return undef;
+        return;
     };
 }
 
@@ -300,7 +300,7 @@ sub read {
     }
     catch {
         warn "Failed to read crontab: $_";
-        return undef;
+        return;
     };
 }
 
@@ -372,7 +372,7 @@ sub _acquire_lock {
 
     open my $lock_fh, '>', $self->{lockfile} or do {
         warn "Cannot create lockfile: $!";
-        return undef;
+        return;
     };
 
     my $timeout = $self->{lock_timeout};
@@ -389,7 +389,7 @@ sub _acquire_lock {
     if ( !$locked ) {
         close $lock_fh;
         warn "Failed to acquire lock: $@" if $@;
-        return undef;
+        return;
     }
 
     return $lock_fh;
@@ -408,7 +408,7 @@ sub _get_latest_backup {
     my ($self) = @_;
 
     my $backups = $self->list_backups();
-    return undef unless @$backups;
+    return unless @$backups;
 
     return $backups->[0]->{filename};
 }

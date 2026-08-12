@@ -344,7 +344,7 @@ sub _parse_option_spec {
     # Group 3: = or : (required/optional value)
     # Group 4: type code (s, i, o, f) or default number or +
     # Group 5: destination type (@ or %)
-    return undef
+    return
       unless $spec =~ /^([\w][\w-]*(?:\|[\w?][\w-]*)*)([!+])?(?:([=:])([siof]|\d+|\+))?([%\@])?$/;
 
     my $names_str = $1;

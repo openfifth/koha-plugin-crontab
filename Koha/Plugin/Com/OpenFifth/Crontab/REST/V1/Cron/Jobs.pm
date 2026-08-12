@@ -323,7 +323,7 @@ sub migrate {
             { crontab => $crontab }
           );
 
-        # Validate command uses approved script, exactly as `add` does
+        # Validate command uses approved script, exactly as 'add' does
         my $validation = $script_model->validate_command( $body->{command} );
         unless ( $validation->{valid} ) {
             return $c->render(
@@ -1011,7 +1011,7 @@ sub _check_user_allowlist {
 
     # Superlibrarians always have access
     my $is_superlibrarian = $userenv->{flags} && $userenv->{flags} == 1;
-    return undef if $is_superlibrarian;
+    return if $is_superlibrarian;
 
     # Check allowlist if configured
     my $plugin         = Koha::Plugin::Com::OpenFifth::Crontab->new( {} );
@@ -1022,7 +1022,7 @@ sub _check_user_allowlist {
         my $bn              = $userenv->{number};
 
         if ( grep( /^$bn$/, @borrowernumbers ) ) {
-            return undef;
+            return;
         }
         else {
             return $c->render(
@@ -1034,7 +1034,7 @@ sub _check_user_allowlist {
     }
 
     # If no allowlist is configured, allow access
-    return undef;
+    return;
 }
 
 1;

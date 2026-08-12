@@ -300,12 +300,25 @@ sub write {
 	print {$ct} $self->dump;
 	close $ct;
 
-	my $crontab;
+	## run crontab(1) without a shell in the loop, passing the owner/file
+	## as positional args ($1/$2) rather than interpolating them into a
+	## command string -- avoids shell metacharacter injection via -owner.
+	my @cmd;
 	if( my $owner = $self->owner ) {
-	    $crontab = `crontab -u $owner $tmpfile 2>&1`;
+	    @cmd = ( 'sh', '-c', 'crontab -u "$1" "$2" 2>&1', '--', $owner, $tmpfile );
 	}
 	else {
-	    $crontab = `crontab $tmpfile 2>&1`;
+	    @cmd = ( 'sh', '-c', 'crontab "$1" 2>&1', '--', $tmpfile );
+	}
+
+	my $crontab = '';
+	if( open my $ct_fh, '-|', @cmd ) {
+	    local $/;
+	    $crontab = <$ct_fh> // '';
+	    close $ct_fh;
+	}
+	else {
+	    $crontab = "$!";
 	}
 	chomp $crontab;
 	unlink $tmpfile;
@@ -337,12 +350,23 @@ sub remove_tab {
     }
 
     else {
-	my $output = '';
+	## as in write(), avoid interpolating -owner into a shell string
+	my @cmd;
 	if( my $owner = $self->owner ) {
-	    $output = `crontab -u $owner -r 2>&1`;
+	    @cmd = ( 'sh', '-c', 'crontab -u "$1" -r 2>&1', '--', $owner );
 	}
 	else {
-	    $output = `yes | crontab -r 2>&1`;
+	    @cmd = ( 'sh', '-c', 'yes | crontab -r 2>&1' );
+	}
+
+	my $output = '';
+	if( open my $ct_fh, '-|', @cmd ) {
+	    local $/;
+	    $output = <$ct_fh> // '';
+	    close $ct_fh;
+	}
+	else {
+	    $output = "$!";
 	}
 	chomp $output;
 
@@ -2372,17 +2396,17 @@ Note from L<crontab(5)>:
 
     Ranges of numbers are allowed.  Ranges are two numbers separated with a
     hyphen.  The specified range is inclusive.  For example, 8-11 for an
-    ``hours'' entry specifies execution at hours 8, 9, 10 and 11.
+    "hours" entry specifies execution at hours 8, 9, 10 and 11.
 
     Lists are allowed.  A list is a set of numbers (or ranges) separated by
-    commas.  Examples: ``1,2,5,9'', ``0-4,8-12''.
+    commas.  Examples: "1,2,5,9", "0-4,8-12".
 
     Step values can be used in conjunction with ranges.  Following a range
-    with ``/<number>'' specifies skips of the number's value through the
-    range.  For example, ``0-23/2'' can be used in the hours field to specify
+    with "/<number>" specifies skips of the number's value through the
+    range.  For example, "0-23/2" can be used in the hours field to specify
     command execution every other hour (the alternative in the V7 standard is
-    ``0,2,4,6,8,10,12,14,16,18,20,22'').  Steps are also permitted after an
-    asterisk, so if you want to say ``every two hours'', just use ``*/2''.
+    "0,2,4,6,8,10,12,14,16,18,20,22").  Steps are also permitted after an
+    asterisk, so if you want to say "every two hours", just use "*/2".
 
 =head2 hour([digits])
 
@@ -2404,7 +2428,7 @@ Note from L<crontab(5)>:
     day of month, and day of week.  If both fields are restricted (ie, aren't
     *), the command will be run when either field matches the current time.
     For example,
-    ``30 4 1,15 * 5'' would cause a command to be run at 4:30 am on the 1st
+    "30 4 1,15 * 5" would cause a command to be run at 4:30 am on the 1st
     and 15th of each month, plus every Friday.
 
 =head2 month([string])
@@ -2414,7 +2438,7 @@ English abbreviated month string (Jan, Feb, etc.).
 
 Note from L<crontab(5)>:
 
-    Names can also be used for the ``month'' and ``day of week'' fields.  Use
+    Names can also be used for the "month" and "day of week" fields.  Use
     the first three letters of the particular day or month (case doesn't mat-
     ter).  Ranges or lists of names are not allowed.
 

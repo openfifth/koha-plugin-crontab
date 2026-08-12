@@ -39,7 +39,7 @@ use Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script;
 
 our $VERSION         = '1.6.2';
-our $MINIMUM_VERSION = "22.11.00.000";
+our $MINIMUM_VERSION = "22.11.00";
 
 our $metadata = {
     name            => 'Crontab',
@@ -50,6 +50,7 @@ our $metadata = {
     minimum_version => $MINIMUM_VERSION,
     maximum_version => undef,
     version         => $VERSION,
+    license         => 'GPL-3.0',
 };
 
 sub new {

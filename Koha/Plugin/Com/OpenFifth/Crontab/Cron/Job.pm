@@ -81,7 +81,7 @@ sub parse_job_metadata {
     }
 
     # Only consider this job manageable if it has our ID marker
-    return undef unless $metadata{'crontab-manager-id'};
+    return unless $metadata{'crontab-manager-id'};
 
     return \%metadata;
 }
@@ -347,7 +347,7 @@ sub find_job_block {
         }
     }
 
-    return undef;
+    return;
 }
 
 =head2 update_job_block
