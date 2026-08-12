@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-08-12
+
 ### Fixed
 - Editing a migrated job (command referencing a script by its raw absolute path) failed to auto-detect the underlying script, since the script picker's auto-match only compared against the `$KOHA_CRON_PATH`-relative form and never the absolute path — this left the parameter builder empty and required manually re-browsing for the script
 - Re-selecting a script from the "Browse Scripts" picker (including reselecting the same script already in use) always discarded any parameters already present on the command line, instead of pre-filling the builder from them
