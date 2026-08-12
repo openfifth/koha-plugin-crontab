@@ -636,7 +636,7 @@
                 method: 'GET',
                 success: function(data) {
                     if (data.scripts) {
-                        let matchedScript = data.scripts.find(s => s.relative_path === scriptPath);
+                        let matchedScript = data.scripts.find(s => s.relative_path === scriptPath || s.path === scriptPath);
                         if (matchedScript) {
                             $('#base-script-path').val(scriptPath);
 
@@ -720,6 +720,12 @@
         }
 
         function saveJob() {
+            // If the parameter builder is active, sync #job-command from its fields first
+            // so that edits made there aren't lost if "Build Command" was never clicked.
+            if ($('#base-script-path').val() && !buildCommandFromParams(true)) {
+                return;
+            }
+
             let jobData = {
                 name: $('#job-name').val(),
                 description: $('#job-description').val(),
@@ -1055,12 +1061,19 @@
         }
 
         function showScriptPicker() {
+            // Track the currently selected script so it can be preselected in the picker
+            let currentPath = $('#base-script-path').val();
+            if (!currentPath) {
+                let command = $('#job-command').val();
+                currentPath = command ? command.split(/\s+/)[0] : '';
+            }
+
             $.ajax({
                 url: '/api/v1/contrib/crontab/scripts',
                 method: 'GET',
                 success: function(data) {
                     if (data.scripts && data.scripts.length > 0) {
-                        displayScriptPicker(data.scripts);
+                        displayScriptPicker(data.scripts, currentPath);
                     } else {
                         showMessage('No scripts found in KOHA_CRON_PATH', 'warning');
                     }
@@ -1071,18 +1084,19 @@
             });
         }
 
-        function displayScriptPicker(scripts) {
+        function displayScriptPicker(scripts, currentPath) {
             let pickerHtml = '<div class="list-group mt-2">';
 
             scripts.forEach(function(script) {
+                let isCurrent = currentPath && (script.relative_path === currentPath || script.path === currentPath);
                 let desc = script.description ? '<small class="text-muted">' + script.description + '</small>' : '';
                 pickerHtml += `
-                    <a href="#" class="list-group-item list-group-item-action script-item"
+                    <a href="#" class="list-group-item list-group-item-action script-item${isCurrent ? ' active' : ''}"
                        data-script-name="${script.name}"
                        data-script-path="${script.relative_path}"
                        data-script-type="${script.type}">
                         <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">${script.name}</h6>
+                            <h6 class="mb-1">${script.name}${isCurrent ? ' <small>(current)</small>' : ''}</h6>
                             <small class="badge bg-secondary">${script.type}</small>
                         </div>
                         ${desc}
@@ -1127,33 +1141,22 @@
         }
 
         function selectScript(scriptName, scriptPath, scriptType) {
+            // Preserve any parameters already present on the command line so that
+            // reselecting the same (or a compatible) script doesn't discard them
+            let previousCommand = $('#job-command').val() || '';
+
             // Set the command input and track base path
             $('#job-command').val(scriptPath);
             $('#base-script-path').val(scriptPath);
 
             // Load script details if it's a Perl script
             if (scriptType === 'perl') {
-                loadScriptDetails(scriptName);
+                loadScriptDetailsAndPopulateParams(scriptName, previousCommand);
             } else {
                 // For shell scripts, just set the path
                 $('#script-params-container').hide();
                 currentScriptData = null;
             }
-        }
-
-        function loadScriptDetails(scriptName) {
-            $.ajax({
-                url: '/api/v1/contrib/crontab/scripts/details',
-                method: 'GET',
-                data: { name: scriptName },
-                success: function(data) {
-                    currentScriptData = data;
-                    displayScriptOptions(data);
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to load script details: ' + error, 'danger');
-                }
-            });
         }
 
         function displayScriptOptions(scriptData) {
@@ -1448,11 +1451,13 @@
             $('#podViewerModal').modal('show');
         }
 
-        function buildCommandFromParams() {
+        function buildCommandFromParams(silent) {
             let basePath = $('#base-script-path').val();
             if (!basePath) {
-                showMessage('Please select a script first', 'warning');
-                return;
+                if (!silent) {
+                    showMessage('Please select a script first', 'warning');
+                }
+                return false;
             }
 
             let params = [];
@@ -1527,7 +1532,7 @@
             if (missingRequired.length > 0) {
                 let names = missingRequired.map(function(o) { return '--' + o.name; }).join(', ');
                 showMessage('Missing required option(s): ' + names, 'danger');
-                return;
+                return false;
             }
 
             let fullCommand = basePath;
@@ -1565,7 +1570,10 @@
             }
 
             $('#job-command').val(fullCommand);
-            showMessage('Command built successfully', 'success');
+            if (!silent) {
+                showMessage('Command built successfully', 'success');
+            }
+            return true;
         }
 
         function loadScriptDetailsAndPopulateParams(scriptName, command) {
