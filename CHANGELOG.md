@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `Cron/Job.pm` and `Cron/File.pm` both `use Config::Crontab;` directly but relied on the main plugin module's `BEGIN` block having already added the bundled copy to `@INC` as a side effect of load order — this only held when the main module was loaded first in the same process, and broke under the plugin store's per-file isolated `perl -c` syntax check. Extracted the bootstrap into `Cron::VendorLib`, `use`d by every file that needs `Config::Crontab`, so each is independently loadable
+
 ## [1.6.4] - 2026-08-12
 
 ## [1.6.3] - 2026-08-12

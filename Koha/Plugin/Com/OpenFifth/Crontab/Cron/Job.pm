@@ -5,6 +5,7 @@ package Koha::Plugin::Com::OpenFifth::Crontab::Cron::Job;
 use Modern::Perl;
 use POSIX qw(strftime);
 use UUID;
+use Koha::Plugin::Com::OpenFifth::Crontab::Cron::VendorLib;
 use Config::Crontab;
 use Scalar::Util qw(refaddr);
 

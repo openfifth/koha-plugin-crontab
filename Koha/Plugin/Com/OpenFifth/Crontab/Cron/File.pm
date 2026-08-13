@@ -8,6 +8,7 @@ use POSIX qw(strftime);
 use Try::Tiny;
 use File::Spec;
 use File::Path qw(make_path);
+use Koha::Plugin::Com::OpenFifth::Crontab::Cron::VendorLib;
 use Config::Crontab;
 use C4::Context;
 

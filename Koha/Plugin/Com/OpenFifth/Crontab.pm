@@ -4,29 +4,8 @@ package Koha::Plugin::Com::OpenFifth::Crontab;
 
 use Modern::Perl;
 
-## Set up persistent warning filter for bundled dependencies
-## This must be done before BEGIN to catch all warnings
-$SIG{__WARN__} = sub {
-    my $msg = shift;
-    ## Suppress redefinition warnings from bundled Config::Crontab
-    ## These warnings occur when install_plugins.pl loads plugins multiple times
-    ## with nocache => 1, forcing module recompilation
-    return if $msg =~ /(?:Subroutine|Constant subroutine) .* redefined at .*Config\/Crontab\.pm/;
-    ## Pass through all other warnings
-    CORE::warn($msg);
-};
-
-BEGIN {
-    use Module::Metadata;
-    my $path = Module::Metadata->find_module_by_name(__PACKAGE__);
-    $path =~ s{[.]pm$}{/lib}xms;
-    unless ( eval { require Config::Crontab; 1;  } ) {
-        unshift @INC, $path;
-    }
-
-    require Config::Crontab;
-    Config::Crontab->import();
-}
+use Koha::Plugin::Com::OpenFifth::Crontab::Cron::VendorLib;
+use Config::Crontab;
 
 use base qw(Koha::Plugins::Base);
 
