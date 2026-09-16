@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - README release-page link still pointed at the old `ptfs-europe` GitHub org; documented the previously-undocumented Logging and Backup Retention settings
+- Configure page's "Non-repeatable" script policy checkbox always rendered checked, regardless of the stored value: the GET path round-tripped the library-tier policy through a bare `YAML::XS::Load` + `encode_json`, which serializes `non_repeatable` as the JSON string `"0"`/`"1"` instead of a real JSON number — both truthy in JavaScript. Now routed through `Cron::Script`'s existing normalizing `get_library_policy`, matching how the server-tier policy was already handled
 
 ## [1.6.5] - 2026-08-13
 
