@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.6] - 2026-09-16
+
 ### Changed
 
 - Fresh installs now seed the Script Policy with a curated default allowlist of commonly-used scripts (`runreport.pl`, `cleanup_database.pl`, `longoverdue.pl`, `update_patrons_category.pl`, `process_message_queue.pl`, `gather_print_notices.pl`, `holds/holds_reminder.pl`) instead of shipping wide open with every script under `KOHA_CRON_PATH` schedulable. Only applies at install time; never overwrites an already-configured policy on upgrade
