@@ -14,8 +14,12 @@ The plugin provides a configuration page accessible via the "Configure" action i
 
 - **User Allowlist**: Restrict access to the plugin by specifying a comma-separated list of borrowernumbers using the build in user search picker
 - **Script Policy**: Define which subset of KOHA_CRON commands/scripts are permitted to run, and optionally mark individual scripts as non-repeatable (only one scheduled instance at a time), restricted to specific hours of the day, or as requiring specific command-line options to have a value before a job can be saved (recommended for security)
+- **Logging**: Toggle whether job add/edit/delete/enable/disable actions are recorded to Koha's action log
+- **Backup Retention**: How many crontab backups to keep before older ones are pruned (default: 10)
 
 Both allowlists can also be configured via the koha-conf.xml file (see below).
+
+On a fresh install, before any of this is configured, the Script Policy defaults to a curated allowlist of commonly-used scripts (`runreport.pl`, `cleanup_database.pl`, `longoverdue.pl`, `update_patrons_category.pl`, `process_message_queue.pl`, `gather_print_notices.pl`, `holds/holds_reminder.pl`) rather than allowing every script under `KOHA_CRON_PATH`. This is only seeded once, at install time — it can be freely edited or cleared from the Configure page afterwards, and upgrading an existing install never overwrites a policy you've already configured.
 
 ## koha-conf.xml Settings
 
@@ -80,4 +84,4 @@ This plugin has **no external dependencies**. All required modules (Config::Cron
 
 ## Download and install the plugin
 
-The latest releases of this plugin can be obtained from the [release page](https://github.com/ptfs-europe/koha-plugin-crontab/releases) where you can download the relevant \*.kpz file
+The latest releases of this plugin can be obtained from the [release page](https://github.com/openfifth/koha-plugin-crontab/releases) where you can download the relevant \*.kpz file
