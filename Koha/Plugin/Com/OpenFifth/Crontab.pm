@@ -11,7 +11,7 @@ use base qw(Koha::Plugins::Base);
 
 use POSIX qw(strftime);
 use JSON qw(encode_json decode_json);
-use YAML::XS qw(Load Dump);
+use YAML::XS qw(Dump);
 
 use C4::Context;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
@@ -94,9 +94,6 @@ sub configure {
     unless ( $cgi->param('save') ) {
         my $template = $self->get_template( { file => 'configure.tt' } );
 
-        my $policy_yaml = $self->retrieve_data('script_policy');
-        my $policy_data = ( $policy_yaml && $policy_yaml =~ /\S/ ) ? ( eval { Load($policy_yaml) } || { scripts => [] } ) : { scripts => [] };
-
         my $crontab      = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new( { plugin => $self } );
         my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => $crontab } );
         my $server_policy = $script_model->get_server_policy();
@@ -105,7 +102,7 @@ sub configure {
         $template->param(
             enable_logging   => $self->retrieve_data('enable_logging'),
             user_allowlist   => $self->retrieve_data('user_allowlist'),
-            script_policy    => encode_json($policy_data),
+            script_policy    => $self->_library_policy_json($script_model),
             server_policy    => encode_json( { scripts => $server_policy } ),
             backup_retention => $self->retrieve_data('backup_retention') || 10,
         );
@@ -186,6 +183,25 @@ sub _convert_legacy_allowlist_text {
     } @patterns;
 
     return Dump( { scripts => \@scripts } );
+}
+
+=head2 _library_policy_json
+
+Build the JSON the configure.tt script-policy editor renders from, via
+C<Cron::Script>'s normalizing C<get_library_policy> rather than a bare
+YAML::XS::Load of the stored setting -- a bare Load leaves non_repeatable
+as a plain string, which encode_json then serializes as the JSON string
+"0"/"1" (both truthy in JS), making the Non-repeatable checkbox always
+render checked regardless of the stored value.
+
+    my $json = $plugin->_library_policy_json($script_model);
+
+=cut
+
+sub _library_policy_json {
+    my ( $self, $script_model ) = @_;
+
+    return encode_json( { scripts => $script_model->get_library_policy() } );
 }
 
 sub install() {
