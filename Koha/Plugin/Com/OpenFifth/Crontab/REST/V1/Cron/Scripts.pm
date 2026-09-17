@@ -104,8 +104,16 @@ sub get {
 
         my $policy           = $script->{policy} || {};
         my %required_lookup  = map { $_ => 1 } @{ $policy->{required_options} || [] };
+
+        # An option is required if the script itself declares it so (a real
+        # signal for scripts using Koha::Script->describe_options -- see
+        # Cron::Script's parse_script_options -- always false for scripts
+        # still on plain GetOptions) OR if the admin-curated policy adds it.
+        # Script-declared required-ness is a floor policy can only add to,
+        # never remove, matching the union posture required_options already
+        # uses between the server/library policy tiers.
         my @options_with_req = map {
-            { %$_, required => $required_lookup{ $_->{name} } ? 1 : 0 }
+            { %$_, required => ( $_->{required} || $required_lookup{ $_->{name} } ) ? 1 : 0 }
         } @{ $parsed->{options} };
 
         return $c->render(

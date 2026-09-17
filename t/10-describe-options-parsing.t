@@ -1,5 +1,5 @@
 use Modern::Perl;
-use Test::More tests => 16;
+use Test::More tests => 22;
 use File::Temp qw(tempdir);
 
 my $plugin_dir = $ENV{KOHA_PLUGIN_DIR} || '.';
@@ -93,8 +93,18 @@ my $converted_result = $script->parse_script_options("$dir/converted.pl");
 is( $converted_result->{options}[0]{required}, 0, 'parse_script_options: dispatches to describe_options parsing for a converted script' );
 is_deeply(
     $converted_result->{positional_args},
-    [ { required => 1, min => 1, name => 'reportID', variadic => 1 } ],
-    'parse_script_options: positional-argument requirement surfaced as a single required entry'
+    [
+        {
+            position => 0,
+            source   => 'describe_options args',
+            label    => 'reportID',
+            required => 1,
+            min      => 1,
+            name     => 'reportID',
+            variadic => 1,
+        }
+    ],
+    'parse_script_options: positional-argument requirement surfaced as a single required entry, shaped like the existing heuristic entries plus required/min/name/variadic'
 );
 
 # A plain GetOptions script -- must be completely unaffected by this change:
@@ -136,3 +146,125 @@ close $fh3;
 my $empty_result = $script->parse_script_options("$dir/empty.pl");
 is_deeply( $empty_result->{options}, [], 'parse_script_options: no options for a script with neither convention' );
 is_deeply( $empty_result->{positional_args}, [], 'parse_script_options: no positional args for a script with neither convention' );
+
+# Real-world stress cases pulled from other scripts converted since the
+# original two examples above (Koha core bugs 43557, 43559, 43560), which
+# introduced constraint shapes the original fixtures never exercised:
+# a nested callbacks => { ... => sub { ... } } hashref inside the required
+# constraint, a description built from string concatenation ('a' . 'b')
+# rather than a single literal, a callback value that's a function call
+# rather than an inline sub, an exclusive => [...] group living alongside
+# args/required in the same trailing hashref, and a regex literal
+# (containing its own, coincidentally-balanced, square brackets) inside a
+# die string inside a callback.
+
+# cart_to_shelf.pl, Koha core bug 43546 (follow-up): --hours gained a
+# "must be a positive integer" callback alongside its required constraint.
+my $cart_to_shelf_with_callback = <<'PERL';
+my $opt = Koha::Script->describe_options(
+    'Set any item with a location of CART back to its original shelving location once the given number of hours have passed.
+
+%c %o',
+    [
+        'hours|h=i', 'hours that need to pass before an item is returned to its original shelving location',
+        {
+            required  => 1,
+            callbacks => {
+                'a positive integer' => sub {
+                    my $v = shift;
+                    return 1 if $v > 0;
+                    die "--hours must be a positive integer (got $v)\n";
+                },
+            },
+        }
+    ],
+    {
+        epilog =>
+            "Examples:\n  %c --hours 24\n    Move any item that has been on the cart for more than 24 hours back to its original shelving location.\n",
+    },
+);
+PERL
+
+my ($hours_options) = $script->_parse_describe_options_block($cart_to_shelf_with_callback);
+is( $hours_options->[0]{required}, 1,
+    'cart_to_shelf.pl (with positive-integer callback): hours is still detected as required' );
+
+# Koha core bug 43559 (membership_expiry.pl): required + a concatenated
+# description + a callback whose value is a function call, not a sub{},
+# + an exclusive group in the same trailing hashref as no args block.
+my $membership_expiry = <<'PERL';
+my $opt = Koha::Script->describe_options(
+    'This script sends membership expiry reminder notices to patrons, by email and sms.
+
+%c %o',
+    [
+        'c', 'confirm that the script has been read and configured; without it, only usage is printed',
+        { required => 1 }
+    ],
+    [
+        'p',
+        'force the generation of print notices, even if the borrower has an email address '
+            . '(cannot be combined with -n)'
+    ],
+    [
+        'active:i', 'include active patrons only (active within the given number of months); '
+            . 'needs TrackLastPatronActivityTriggers',
+        { callbacks => { 'a positive number of months' => _positive_months('active') } }
+    ],
+    [
+        'inactive:i', 'include inactive patrons only (inactive within the given number of months); '
+            . 'needs TrackLastPatronActivityTriggers',
+        { callbacks => { 'a positive number of months' => _positive_months('inactive') } }
+    ],
+    { exclusive => [ [qw(active inactive)] ] },
+);
+PERL
+
+my ( $membership_options, $membership_positional ) = $script->_parse_describe_options_block($membership_expiry);
+is( scalar @$membership_options, 4, 'membership_expiry.pl: all four options found despite concatenated descriptions' );
+is_deeply(
+    [ map { $_->{required} } @$membership_options ],
+    [ 1, 0, 0, 0 ],
+    'membership_expiry.pl: only -c is required, unaffected by the exclusive group or callbacks'
+);
+is( $membership_positional, undef, 'membership_expiry.pl: an exclusive group alone is not mistaken for a positional-argument requirement' );
+
+# Koha core bug 43560 (update_totalissues.pl): a regex literal with its own
+# (coincidentally balanced) square brackets inside a callback's die string,
+# and two exclusive groups declared together.
+my $update_totalissues = <<'PERL';
+my ( $opt, $usage ) = Koha::Script->describe_options(
+    'This batch job populates bibliographic records total issues count.
+
+%c %o',
+    [ 'since|s:s', 'only process issues recorded in the statistics table since DATE' ],
+    [
+        'interval|i:s',
+        'only process issues recorded in the statistics table in the last N units of time',
+        {
+            callbacks => {
+                'a number with an optional h/d/w/m/y suffix' => sub {
+                    my $v = shift;
+                    return 1 if $v =~ /^[0-9]+[hdwmy]?$/;
+                    die "--interval must be a number with an optional h/d/w/m/y suffix (got '$v')\n";
+                },
+            },
+        }
+    ],
+    [
+        'progress|p:i', 'print the progress to standard output after every N records are processed',
+        { default => 100, callbacks => { 'a positive integer' => sub { 1 } } }
+    ],
+    {
+        exclusive => [ [qw(since interval)], [qw(use-items incremental)] ],
+    },
+);
+PERL
+
+my ($totalissues_options) = $script->_parse_describe_options_block($update_totalissues);
+is( scalar @$totalissues_options, 3, 'update_totalissues.pl: all three options found despite a regex literal inside a nested callback' );
+is_deeply(
+    [ map { $_->{required} } @$totalissues_options ],
+    [ 0, 0, 0 ],
+    'update_totalissues.pl: none required, unaffected by the regex/bracket-heavy callback body'
+);
