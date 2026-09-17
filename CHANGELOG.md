@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `Cron::Script`'s option parser now recognizes scripts converted to Koha core's new `Koha::Script->describe_options` convention (Koha bug 43546), reading their declared `required` options and required positional arguments as a genuine static signal, rather than the unreliable inference that was removed from plain-Getopt::Long parsing in v1.6.0. Not yet wired into the required-options policy or the UI -- this is the parsing groundwork only.
+- `Cron::Script`'s option parser now recognizes scripts converted to Koha core's new `Koha::Script->describe_options` convention (Koha bug 43546), reading their declared `required` options and required positional arguments as a genuine static signal, rather than the unreliable inference that was removed from plain-Getopt::Long parsing in v1.6.0.
+- Script-declared required options (and required positional arguments) are now surfaced end-to-end: the script picker marks them required (union with any admin-curated `required_options` policy) with the same asterisk and client-side pre-flight check named options already had, and jobs are rejected server-side if a script-declared required option is missing -- even when no policy entry has been configured for that script at all, since this is a floor policy can only add to, not something an admin has to opt into first.
+- Client-side validation for required positional arguments (previously nonexistent for any script), enforcing a script-declared minimum argument count before a job can be built/saved.
+
+### Not yet done
+
+- Positional-argument requirements are enforced client-side only; there is no server-side check yet for the number of bare arguments in a saved command (unlike named required options, which are enforced both client- and server-side).
 
 ## [1.6.6] - 2026-09-16
 

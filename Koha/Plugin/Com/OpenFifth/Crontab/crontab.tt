@@ -1339,6 +1339,7 @@
                             <div class="mb-3">
                                 <label class="form-label">
                                     <code>${arg.label}</code>
+                                    ${arg.required ? '<span class="text-danger">*</span>' : ''}
                                     <small class="text-muted">(one or more values)</small>
                                 </label>
                                 <div class="repeatable-container positional-variadic" id="${argId}-container"
@@ -1365,6 +1366,7 @@
                             <div class="mb-3">
                                 <label for="${argId}" class="form-label">
                                     <code>${arg.label}</code>
+                                    ${arg.required ? '<span class="text-danger">*</span>' : ''}
                                     <small class="text-muted">(position ${arg.position + 1})</small>
                                 </label>
                                 <input type="text"
@@ -1573,6 +1575,16 @@
                     positionalValues.push(shellQuoteValue(value.trim()));
                 }
             });
+
+            let requiredPositional = (currentScriptData && currentScriptData.positional_args ? currentScriptData.positional_args : [])
+                .filter(function(arg) { return arg.required && arg.min; })
+                .filter(function(arg) { return positionalValues.length < arg.min; });
+
+            if (requiredPositional.length > 0) {
+                let arg = requiredPositional[0];
+                showMessage('At least ' + arg.min + ' ' + (arg.name || 'argument') + (arg.min == 1 ? '' : 's') + ' required', 'danger');
+                return false;
+            }
 
             if (positionalValues.length > 0) {
                 fullCommand += ' ' + positionalValues.join(' ');

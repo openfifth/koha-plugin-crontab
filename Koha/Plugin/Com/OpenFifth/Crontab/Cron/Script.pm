@@ -270,7 +270,15 @@ sub parse_script_options {
         # inference.
         my ( $parsed_options, $positional ) = $self->_parse_describe_options_block($content);
         @options = @$parsed_options;
+
+        # position/source/label match the shape _detect_argv_usage's
+        # heuristic entries already use (consumed as-is by the UI);
+        # required/min/name/variadic are new, since the heuristic has no
+        # required-ness signal to offer for plain-GetOptions scripts.
         @positional_args = $positional ? ( {
+            position => 0,
+            source   => 'describe_options args',
+            label    => $positional->{name} || 'Argument',
             required => 1,
             min      => $positional->{min},
             name     => $positional->{name},
@@ -775,7 +783,52 @@ sub validate_command {
     }
 
     # Command is valid
-    return { valid => 1, script => $matched_script, policy => $matched_script->{policy} };
+    return {
+        valid  => 1,
+        script => $matched_script,
+        policy => $self->_policy_with_script_declared_required($matched_script),
+    };
+}
+
+=head2 _policy_with_script_declared_required
+
+Union a matched script's admin-configured policy (if any) with any
+options the script itself declares required via
+C<Koha::Script-E<gt>describe_options> (see C<parse_script_options>).
+Unlike C<non_repeatable>/C<allowed_hours>, which stay purely
+policy-driven, a script-declared required option is enforced regardless
+of whether an admin has configured a policy entry for that script at
+all -- it's a floor policy can only add to, matching the union posture
+C<required_options> already uses between the server/library policy
+tiers.
+
+    my $policy = $self->_policy_with_script_declared_required($matched_script);
+
+Returns undef if there is neither a configured policy nor any
+script-declared required options (preserving today's behavior for plain
+Getopt::Long scripts with no policy entry).
+
+=cut
+
+sub _policy_with_script_declared_required {
+    my ( $self, $matched_script ) = @_;
+
+    my $policy = $matched_script->{policy};
+
+    my @script_required;
+    if ( ( $matched_script->{type} // '' ) eq 'perl' ) {
+        my $parsed = $self->parse_script_options( $matched_script->{path} );
+        @script_required = map { $_->{name} } grep { $_->{required} } @{ $parsed->{options} };
+    }
+
+    return $policy unless @script_required;
+
+    my %union = map { $_ => 1 } ( @script_required, @{ $policy->{required_options} || [] } );
+    return {
+        non_repeatable   => $policy->{non_repeatable} || 0,
+        allowed_hours    => $policy->{allowed_hours}  || '',
+        required_options => [ sort keys %union ],
+    };
 }
 
 =head2 _expand_cron_field
