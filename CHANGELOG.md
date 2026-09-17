@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Cron::Script`'s option parser now recognizes scripts converted to Koha core's new `Koha::Script->describe_options` convention (Koha bug 43546), reading their declared `required` options and required positional arguments as a genuine static signal, rather than the unreliable inference that was removed from plain-Getopt::Long parsing in v1.6.0. Not yet wired into the required-options policy or the UI -- this is the parsing groundwork only.
+
 ## [1.6.6] - 2026-09-16
 
 ### Changed

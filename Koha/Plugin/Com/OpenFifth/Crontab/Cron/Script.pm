@@ -260,8 +260,26 @@ sub parse_script_options {
 
     my $content = join( '', @lines );
 
-    my @options        = $self->_parse_getoptions_block($content);
-    my @positional_args = $self->_detect_argv_usage( $content, \@lines );
+    my ( @options, @positional_args );
+
+    if ( $content =~ /describe_options\s*\(/ ) {
+
+        # Scripts converted to Koha core's Koha::Script->describe_options
+        # convention (bug 43546) can declare required-ness reliably --
+        # unlike plain GetOptions, this is a real static signal, not an
+        # inference.
+        my ( $parsed_options, $positional ) = $self->_parse_describe_options_block($content);
+        @options = @$parsed_options;
+        @positional_args = $positional ? ( {
+            required => 1,
+            min      => $positional->{min},
+            name     => $positional->{name},
+            variadic => $positional->{variadic},
+        } ) : ();
+    } else {
+        @options         = $self->_parse_getoptions_block($content);
+        @positional_args = $self->_detect_argv_usage( $content, \@lines );
+    }
 
     return {
         options         => \@options,
@@ -312,7 +330,12 @@ sub _parse_getoptions_block {
     my @options;
     for my $spec (@specs) {
         my $parsed = $self->_parse_option_spec($spec);
-        push @options, $parsed if $parsed;
+
+        # required is never inferred for plain GetOptions (see
+        # _parse_option_spec) -- set explicitly false so every option
+        # returned by parse_script_options carries the key, regardless of
+        # which convention the script uses.
+        push @options, { %$parsed, required => 0 } if $parsed;
     }
 
     return @options;
@@ -411,6 +434,190 @@ sub _parse_option_spec {
         repeatable  => $repeatable,
         dest_type   => $dest_type,
     };
+}
+
+=head2 _parse_describe_options_block
+
+Extract and parse a C<Koha::Script-E<gt>describe_options(...)> call from
+script content -- the convention scripts converted under Koha core bug
+43546 use in place of plain C<GetOptions>. Each option is declared as
+C<[ 'spec', 'description', { constraints } ]>; the spec mini-language
+itself is unchanged from Getopt::Long, but unlike Getopt::Long, an option
+here may carry an explicit C<{ required =E<gt> 1 }> constraint -- a
+genuine, reliable static signal, not an inference (which is why it was
+deliberately removed from C<_parse_option_spec>). A trailing bare hashref
+may also declare a positional-argument requirement via C<< args => { min,
+name, variadic } >>, something Getopt::Long::Descriptive has no way to
+express as a named option.
+
+    my ( $options, $positional ) = $self->_parse_describe_options_block($content);
+
+Returns C<( \@options, $positional )>. C<@options> is shaped like
+C<_parse_getoptions_block>'s output (name, short_name, type, negatable,
+incremental, repeatable, dest_type, required). C<$positional> is C<undef>
+if no C<args> block was found, or a hashref C<{ min, name, variadic }> if
+one was.
+
+=cut
+
+sub _parse_describe_options_block {
+    my ( $self, $content ) = @_;
+
+    my $args_text = $self->_extract_balanced_call( $content, qr/describe_options\s*\(/ );
+    return ( [], undef ) unless defined $args_text;
+
+    my @options;
+    my $positional;
+
+    for my $element ( $self->_split_top_level($args_text) ) {
+        my $trimmed = $element;
+        $trimmed =~ s/^\s+|\s+$//g;
+        next unless length $trimmed;
+
+        if ( $trimmed =~ /^\[/ ) {
+
+            # an option arrayref: [ 'spec', 'description', { constraints } ]
+            ( my $inner = $trimmed ) =~ s/^\[\s*//;
+            $inner =~ s/\s*\]$//;
+            my @parts = $self->_split_top_level($inner);
+
+            my ($spec) = $self->_extract_quoted_strings( $parts[0] // '' );
+            next unless defined $spec;
+
+            my $parsed = $self->_parse_option_spec($spec) or next;
+
+            my $constraint_text = join( '', grep { /^\s*\{/ } @parts[ 1 .. $#parts ] );
+            my $required = ( $constraint_text =~ /required\s*=>\s*1/ ) ? 1 : 0;
+
+            push @options, { %$parsed, required => $required };
+        } elsif ( $trimmed =~ /^\{/ ) {
+
+            # the trailing meta hashref: { epilog => ..., args => { ... } }
+            if ( $trimmed =~ /args\s*=>\s*\{([^}]*)\}/ ) {
+                my $args_block = $1;
+                my ($min)    = ( $args_block =~ /min\s*=>\s*(\d+)/ );
+                my ($name)   = $self->_extract_quoted_strings($args_block);
+                my $variadic = ( $args_block =~ /variadic\s*=>\s*1/ ) ? 1 : 0;
+                $positional = { min => ( defined $min ? $min + 0 : 0 ), name => $name, variadic => $variadic };
+            }
+        }
+    }
+
+    return ( \@options, $positional );
+}
+
+=head2 _extract_balanced_call
+
+Given script content and a regex matching through a call's opening
+paren (e.g. C<qr/describe_options\s*\(/>), return the text of that call's
+argument list -- from just after the opening paren to just before its
+matching closing paren -- found via a quote-aware, bracket-depth-balanced
+scan. A single-line "ends with );" heuristic (as C<_parse_getoptions_block>
+uses) isn't enough here, since a describe_options() call spans multiple
+nested C<[...]>/C<{...}> groups with commas and parentheses inside
+description text.
+
+    my $args_text = $self->_extract_balanced_call( $content, qr/describe_options\s*\(/ );
+
+Returns undef if no match is found, or if the brackets never balance.
+
+=cut
+
+sub _extract_balanced_call {
+    my ( $self, $content, $start_regex ) = @_;
+
+    return undef unless $content =~ $start_regex;
+    my $start = $+[0];
+
+    my $depth = 1;
+    my $i     = $start;
+    my $len   = length($content);
+    my $in_quote;
+
+    while ( $i < $len && $depth > 0 ) {
+        my $c = substr( $content, $i, 1 );
+
+        if ( defined $in_quote ) {
+            if ( $c eq '\\' ) { $i++; }
+            elsif ( $c eq $in_quote ) { $in_quote = undef; }
+        } else {
+            if    ( $c eq q(') || $c eq q(") ) { $in_quote = $c; }
+            elsif ( $c eq '(' || $c eq '[' || $c eq '{' ) { $depth++; }
+            elsif ( $c eq ')' || $c eq ']' || $c eq '}' ) { $depth--; }
+        }
+        $i++;
+    }
+
+    return undef if $depth != 0;
+    return substr( $content, $start, $i - $start - 1 );
+}
+
+=head2 _split_top_level
+
+Split a bracket-balanced argument-list string (as returned by
+C<_extract_balanced_call>) into its top-level comma-separated elements,
+respecting quote and bracket nesting -- so a comma inside a quoted
+description (e.g. "LOGIN, DIGEST-MD5") or inside a nested C<[...]>/C<{...}>
+never causes a false split.
+
+    my @parts = $self->_split_top_level($args_text);
+
+=cut
+
+sub _split_top_level {
+    my ( $self, $text ) = @_;
+
+    my @parts;
+    my $depth = 0;
+    my $buf   = '';
+    my $in_quote;
+    my $i   = 0;
+    my $len = length($text);
+
+    while ( $i < $len ) {
+        my $c = substr( $text, $i, 1 );
+        if ( defined $in_quote ) {
+            $buf .= $c;
+            if ( $c eq '\\' ) {
+                $i++;
+                $buf .= substr( $text, $i, 1 );
+            } elsif ( $c eq $in_quote ) { $in_quote = undef; }
+        } else {
+            if    ( $c eq q(') || $c eq q(") ) { $in_quote = $c; $buf .= $c; }
+            elsif ( $c =~ /[\(\[\{]/ )         { $depth++;       $buf .= $c; }
+            elsif ( $c =~ /[\)\]\}]/ )         { $depth--;       $buf .= $c; }
+            elsif ( $c eq ',' && $depth == 0 ) {
+                push @parts, $buf;
+                $buf = '';
+            } else {
+                $buf .= $c;
+            }
+        }
+        $i++;
+    }
+    push @parts, $buf if $buf =~ /\S/;
+
+    return @parts;
+}
+
+=head2 _extract_quoted_strings
+
+Return every single- or double-quoted string literal found in C<$text>, in
+order. Callers only need the raw contents, so nothing is unescaped beyond
+not letting an escaped quote terminate the match early.
+
+    my @strings = $self->_extract_quoted_strings($text);
+
+=cut
+
+sub _extract_quoted_strings {
+    my ( $self, $text ) = @_;
+
+    my @out;
+    while ( $text =~ /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g ) {
+        push @out, ( defined $1 ? $1 : $2 );
+    }
+    return @out;
 }
 
 =head2 _detect_argv_usage
