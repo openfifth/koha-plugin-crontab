@@ -466,6 +466,116 @@
                 e.preventDefault();
                 deleteJob();
             });
+
+            // Row-action handlers below are delegated from a static ancestor rather
+            // than bound directly to each row. DataTables only keeps one page's worth
+            // of <tr> elements in the DOM at a time and rebuilds them on paging,
+            // sorting, or searching, so a direct per-row binding (rebound after each
+            // draw()) silently stops working for any row not visible at bind time.
+            // Delegation binds once and keeps matching new rows as they're drawn.
+            $('#jobs_table').on('click', '.edit-job', function() {
+                let jobId = $(this).data('job-id');
+                openJobModal(jobId);
+            });
+
+            $('#jobs_table').on('click', '.enable-job, .disable-job', function() {
+                let jobId = $(this).data('job-id');
+                let enable = $(this).hasClass('enable-job');
+                toggleJobStatus(jobId, enable);
+            });
+
+            $('#jobs_table').on('click', '.delete-job', function() {
+                let jobId = $(this).data('job-id');
+                let jobDesc = $(this).data('job-desc');
+                openDeleteModal(jobId, jobDesc);
+            });
+
+            $('#jobs_table').on('click', '.view-doc-btn', function() {
+                let command = $(this).attr('data-command');
+                viewScriptDocumentation(command);
+            });
+
+            $('#system_jobs_table').on('click', '.view-doc-btn', function() {
+                let command = $(this).attr('data-command');
+                viewScriptDocumentation(command);
+            });
+
+            $('#system_jobs_table').on('click', '.migrate-job', function() {
+                let schedule = $(this).attr('data-schedule');
+                let command = $(this).attr('data-command');
+                let comments = JSON.parse(decodeURIComponent($(this).attr('data-comments')));
+
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/jobs/migrate',
+                    method: 'POST',
+                    data: JSON.stringify({ schedule: schedule, command: command, comments: comments }),
+                    contentType: 'application/json',
+                    success: function(job) {
+                        showMessage('System job migrated to a managed job', 'success');
+                        loadJobs();
+                        loadAllCrontabEntries();
+                        new bootstrap.Tab(document.getElementById('managed-tab')).show();
+                        openJobModal(job.id);
+                    },
+                    error: function(xhr, status, error) {
+                        let message = 'Failed to migrate job';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            message += ': ' + xhr.responseJSON.error;
+                        }
+                        showMessage(message, 'danger');
+                    }
+                });
+            });
+
+            // Environment variable rows are appended dynamically to this (static)
+            // container, so the same delegation reasoning applies.
+            $('#environment-container').on('click', '.remove-env-var', function() {
+                $(this).closest('.env-var-row').remove();
+            });
+
+            // Script parameter builder: repeatable/hash entry rows are appended
+            // dynamically to this (static) container.
+            $('#script-options').on('click', '.add-repeatable-entry', function() {
+                let targetId = $(this).data('target');
+                let inputType = $(this).data('input-type') || 'text';
+                let placeholder = $(this).data('placeholder') || 'Enter value';
+                let entryHtml = `
+                    <div class="input-group input-group-sm mb-1 repeatable-entry">
+                        <input type="${inputType}" class="form-control repeatable-value"
+                               placeholder="${placeholder}">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                $('#' + targetId).append(entryHtml);
+            });
+
+            $('#script-options').on('click', '.add-hash-entry', function() {
+                let targetId = $(this).data('target');
+                let entryHtml = `
+                    <div class="input-group input-group-sm mb-1 hash-entry">
+                        <input type="text" class="form-control hash-key" placeholder="key">
+                        <span class="input-group-text">=</span>
+                        <input type="text" class="form-control hash-value" placeholder="value">
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                $('#' + targetId).append(entryHtml);
+            });
+
+            $('#script-options').on('click', '.remove-repeatable-entry', function() {
+                let $container = $(this).closest('.repeatable-container, .repeatable-hash-container');
+                // Keep at least one entry
+                if ($container.children('.repeatable-entry, .hash-entry').length > 1) {
+                    $(this).closest('.repeatable-entry, .hash-entry').remove();
+                } else {
+                    // Clear the inputs instead of removing the last entry
+                    $(this).closest('.repeatable-entry, .hash-entry').find('input').val('');
+                }
+            });
         });
 
         function loadJobs() {
@@ -562,33 +672,6 @@
             // Hide spinner and show table
             $('#jobs-loading').hide();
             $('#jobs_table').show();
-
-            // Bind action handlers
-            bindActionHandlers();
-        }
-
-        function bindActionHandlers() {
-            $('.edit-job').off('click').on('click', function() {
-                let jobId = $(this).data('job-id');
-                openJobModal(jobId);
-                    });
-
-            $('.enable-job, .disable-job').off('click').on('click', function() {
-                let jobId = $(this).data('job-id');
-                let enable = $(this).hasClass('enable-job');
-                toggleJobStatus(jobId, enable);
-            });
-
-            $('.delete-job').off('click').on('click', function() {
-                let jobId = $(this).data('job-id');
-                let jobDesc = $(this).data('job-desc');
-                openDeleteModal(jobId, jobDesc);
-            });
-
-            $('.view-doc-btn').off('click').on('click', function() {
-                let command = $(this).attr('data-command');
-                viewScriptDocumentation(command);
-            });
         }
 
         function openJobModal(jobId = null) {
@@ -721,11 +804,6 @@
                 </div>
             `;
             $('#environment-container').append(envHtml);
-
-            // Bind remove handler
-            $('.remove-env-var').off('click').on('click', function() {
-                $(this).closest('.env-var-row').remove();
-            });
         }
 
         function saveJob() {
@@ -896,39 +974,6 @@
             // Hide spinner and show table
             $('#system-jobs-loading').hide();
             $('#system_jobs_table').show();
-
-            // Bind action handlers for system jobs doc buttons
-            $('.view-doc-btn').off('click').on('click', function() {
-                let command = $(this).attr('data-command');
-                viewScriptDocumentation(command);
-            });
-
-            $('.migrate-job').off('click').on('click', function() {
-                let schedule = $(this).attr('data-schedule');
-                let command = $(this).attr('data-command');
-                let comments = JSON.parse(decodeURIComponent($(this).attr('data-comments')));
-
-                $.ajax({
-                    url: '/api/v1/contrib/crontab/jobs/migrate',
-                    method: 'POST',
-                    data: JSON.stringify({ schedule: schedule, command: command, comments: comments }),
-                    contentType: 'application/json',
-                    success: function(job) {
-                        showMessage('System job migrated to a managed job', 'success');
-                        loadJobs();
-                        loadAllCrontabEntries();
-                        new bootstrap.Tab(document.getElementById('managed-tab')).show();
-                        openJobModal(job.id);
-                    },
-                    error: function(xhr, status, error) {
-                        let message = 'Failed to migrate job';
-                        if (xhr.responseJSON && xhr.responseJSON.error) {
-                            message += ': ' + xhr.responseJSON.error;
-                        }
-                        showMessage(message, 'danger');
-                    }
-                });
-            });
         }
 
         function loadEnvironmentVariables() {
@@ -1386,61 +1431,6 @@
 
             $('#script-options').html(optionsHtml);
             $('#script-params-container').show();
-
-            // Bind repeatable entry handlers
-            bindRepeatableHandlers();
-        }
-
-        function bindRepeatableHandlers() {
-            // Add repeatable value entry
-            $('.add-repeatable-entry').off('click').on('click', function() {
-                let targetId = $(this).data('target');
-                let inputType = $(this).data('input-type') || 'text';
-                let placeholder = $(this).data('placeholder') || 'Enter value';
-                let entryHtml = `
-                    <div class="input-group input-group-sm mb-1 repeatable-entry">
-                        <input type="${inputType}" class="form-control repeatable-value"
-                               placeholder="${placeholder}">
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                `;
-                $('#' + targetId).append(entryHtml);
-                bindRemoveHandlers();
-            });
-
-            // Add hash entry
-            $('.add-hash-entry').off('click').on('click', function() {
-                let targetId = $(this).data('target');
-                let entryHtml = `
-                    <div class="input-group input-group-sm mb-1 hash-entry">
-                        <input type="text" class="form-control hash-key" placeholder="key">
-                        <span class="input-group-text">=</span>
-                        <input type="text" class="form-control hash-value" placeholder="value">
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                `;
-                $('#' + targetId).append(entryHtml);
-                bindRemoveHandlers();
-            });
-
-            bindRemoveHandlers();
-        }
-
-        function bindRemoveHandlers() {
-            $('.remove-repeatable-entry').off('click').on('click', function() {
-                let $container = $(this).closest('.repeatable-container, .repeatable-hash-container');
-                // Keep at least one entry
-                if ($container.children('.repeatable-entry, .hash-entry').length > 1) {
-                    $(this).closest('.repeatable-entry, .hash-entry').remove();
-                } else {
-                    // Clear the inputs instead of removing the last entry
-                    $(this).closest('.repeatable-entry, .hash-entry').find('input').val('');
-                }
-            });
         }
 
         function showPodViewer() {
@@ -1827,9 +1817,6 @@
                     }
                 }
             }
-
-            // Re-bind handlers for dynamically added elements
-            bindRepeatableHandlers();
         }
     </script>
 [% END %]
