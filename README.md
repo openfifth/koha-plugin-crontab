@@ -188,3 +188,7 @@ This plugin has **no external dependencies**. All required modules (Config::Cron
 ## Download and install the plugin
 
 The latest releases of this plugin can be obtained from the [release page](https://github.com/openfifth/koha-plugin-crontab/releases) where you can download the relevant \*.kpz file
+
+## Development
+
+Setup, testing and the release process are documented in [DEVELOPMENT.md](DEVELOPMENT.md).

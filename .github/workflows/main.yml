@@ -14,9 +14,47 @@ on:
     - cron: "0 6 1,15 * *"
 
 jobs:
+  guard:
+    name: Skip duplicate release run
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Checkout plugin code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect release-tag companion push
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
+        run: |
+          # `npm run release:*` pushes the version-bump commit on main and its
+          # release tag together (`--follow-tags`). GitHub fires a separate
+          # push event per ref updated, so without this guard the same commit
+          # gets the full test matrix twice: once for the branch push, once
+          # for the tag push. Skip the branch-push copy when this exact
+          # commit already carries a release tag; the tag-triggered run (a
+          # separate event, with github.ref pointing at the tag) still runs
+          # unaffected.
+          if [ "$EVENT_NAME" = "push" ] && [[ "$EVENT_REF" == refs/heads/* ]] && git tag --points-at HEAD | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Commit already covered by a tag-triggered run; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   unit_tests:
     name: Run unit tests
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -35,18 +73,20 @@ jobs:
           version-label: "${{ matrix.koha-version }}"
 
       - name: Set up environment variables
+        env:
+          KOHA_VERSION_BRANCH: ${{ steps.koha-version.outputs.current-branch-name }}
         run: |
           IFS='/' read -r -a parts <<< "$GITHUB_REPOSITORY"
           GITHUB_REPO="${parts[1]}"
           echo "GITHUB_REPO=$GITHUB_REPO" >> $GITHUB_ENV
-          echo "KOHA_BRANCH=${{ steps.koha-version.outputs.current-branch-name }}" >> $GITHUB_ENV
+          echo "KOHA_BRANCH=$KOHA_VERSION_BRANCH" >> $GITHUB_ENV
           echo "PLUGINS_DIR=$(pwd)/.." >> $GITHUB_ENV
           echo "SYNC_REPO=$(pwd)/../kohaclone" >> $GITHUB_ENV
 
       - name: Check out Koha
         run: |
           cd ..
-          git clone --branch ${{ env.KOHA_BRANCH }} --single-branch --depth 1 https://github.com/Koha-Community/Koha.git kohaclone
+          git clone --branch "$KOHA_BRANCH" --single-branch --depth 1 https://github.com/Koha-Community/Koha.git kohaclone
 
       - name: Install koha-testing-docker
         run: |
@@ -57,6 +97,9 @@ jobs:
           echo "$(pwd)/bin" >> $GITHUB_PATH
 
       - name: Launch KTD instance with plugins support
+        env:
+          MATRIX_KOHA_VERSION: ${{ matrix.koha-version }}
+          KOHA_VERSION_MAJOR_MINOR: ${{ steps.koha-version.outputs.version-major-minor }}
         run: |
           sudo sysctl -w vm.max_map_count=262144
           cd ../koha-testing-docker
@@ -64,10 +107,10 @@ jobs:
           export KTD_HOME=$(pwd)
           export SKIP_L10N=yes
           # Use version-major-minor but handle main branch case
-          if [ "${{ matrix.koha-version }}" = "main" ]; then
+          if [ "$MATRIX_KOHA_VERSION" = "main" ]; then
             export KOHA_IMAGE=main
           else
-            export KOHA_IMAGE=${{ steps.koha-version.outputs.version-major-minor }}
+            export KOHA_IMAGE="$KOHA_VERSION_MAJOR_MINOR"
           fi
           ktd --name crontab --plugins up -d
 
@@ -85,9 +128,10 @@ jobs:
         run: |
           export KTD_HOME=$(pwd)/../koha-testing-docker
           ktd --name crontab --shell --run "
-            cd /kohadevbox/plugins/${{ env.GITHUB_REPO }} &&
+            cd /kohadevbox/plugins/$GITHUB_REPO &&
             export KOHA_PLUGIN_DIR=\$(pwd) &&
             export PERL5LIB=\$PERL5LIB:. &&
+            { [ ! -f cpanfile ] || sudo cpanm --notest --installdeps . ; } &&
             sudo cpanm --notest TAP::Harness::JUnit &&
             JUNIT_OUTPUT_FILE=junit.xml prove -v -r -s t/ --harness=TAP::Harness::JUnit
           "
@@ -123,8 +167,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      issues: write
-      pull-requests: write
+      issues: read
+      pull-requests: read
 
     steps:
       - uses: actions/checkout@v5
@@ -153,7 +197,7 @@ jobs:
 
       - name: Build Koha Plugin kpz artifact
         id: kpz
-        uses: "bywatersolutions/github-action-koha-plugin-create-kpz@master"
+        uses: "bywatersolutions/github-action-koha-plugin-create-kpz@v3"
         with:
           release-version: ${{ github.ref_name }}
           release-name: ${{ github.event.repository.name }}
