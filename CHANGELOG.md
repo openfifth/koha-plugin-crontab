@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- The Configure page's save read `enable_logging` and `user_allowlist` in list context inside a hash constructor, so a request repeating one of those parameters could inject extra keys into the stored plugin settings (CGI parameter injection). Exploiting it needs an authenticated administrator's POST carrying a valid CSRF token, so the impact is low, but the values are now read in scalar context and a test covers it.
+
 ### Changed
 
 - Relicensed from GPL-3.0 to **AGPL-3.0-or-later**, matching the other Open Fifth plugins and the plugin template. Added the licence text (`LICENSE`), an `SPDX-License-Identifier` header on every first-party source file, and the licence in the plugin metadata. The bundled `Config::Crontab` keeps its own (Perl) licence.

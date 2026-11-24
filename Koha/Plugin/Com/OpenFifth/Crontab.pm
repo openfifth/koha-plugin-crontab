@@ -160,8 +160,10 @@ sub configure {
 
         $self->store_data(
             {
-                enable_logging   => $cgi->param('enable_logging'),
-                user_allowlist   => $cgi->param('user_allowlist'),
+                # scalar(): in a hash constructor param() would run in list context,
+                # so a repeated parameter could inject extra keys into the stored settings.
+                enable_logging   => scalar $cgi->param('enable_logging'),
+                user_allowlist   => scalar $cgi->param('user_allowlist'),
                 script_policy    => $policy_yaml,
                 backup_retention => $backup_retention,
             }

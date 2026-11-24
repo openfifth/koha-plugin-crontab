@@ -81,4 +81,25 @@ my $ok2 = run_configure( 'POST', %attack, backup_retention => 25, op => 'cud-sav
 is( $ok2->{stored}[0]{backup_retention}, 25, 'a valid backup retention is stored' );
 is_deeply( [ map { $_->{path} } @{ Load( $ok2->{stored}[0]{script_policy} )->{scripts} } ], ['runreport.pl'], 'the submitted script policy is stored' );
 
+# --- a repeated parameter must not inject extra keys into the stored settings ------
+{
+    ( $rendered, $went_home, @stored ) = ( 0, 0 );
+    local $ENV{REQUEST_METHOD} = 'POST';
+    my $cgi = CGI->new('op=cud-save&backup_retention=15&script_policy=%7B%22scripts%22%3A%5B%5D%7D'
+        . '&user_allowlist=1&user_allowlist=injected_key&user_allowlist=injected_value'
+        . '&enable_logging=Yes&enable_logging=other_key&enable_logging=other_value');
+    my $plugin = $plugin_module->new( { cgi => $cgi } );
+    ( $rendered, $went_home, @stored ) = ( 0, 0 );
+    $plugin->configure;
+
+    is( scalar @stored, 1, 'repeated parameters: settings stored once' );
+    is_deeply(
+        [ sort keys %{ $stored[0] } ],
+        [qw(backup_retention enable_logging script_policy user_allowlist)],
+        'repeated parameters: only the expected settings keys are stored'
+    );
+    is( $stored[0]{user_allowlist}, '1',   'repeated parameters: user_allowlist takes a single value' );
+    is( $stored[0]{enable_logging}, 'Yes', 'repeated parameters: enable_logging takes a single value' );
+}
+
 done_testing();
