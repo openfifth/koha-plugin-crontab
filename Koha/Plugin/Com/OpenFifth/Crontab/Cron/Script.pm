@@ -134,32 +134,28 @@ sub get_available_scripts {
 
     my $effective_policy = $self->_effective_policy();
 
-    # Filter by script policy if one is configured (unless bypassed). Whether
-    # a policy exists is a property of the tiers, not of the merged list: a
-    # server ceiling that ends up leaving nothing allowed means "no scripts",
-    # never "no policy, so everything".
+    # Filter by the script policy (unless bypassed). Always: an empty policy
+    # means no scripts may be scheduled, never "no policy, so everything".
     unless ( $options->{bypass_filter} ) {
-        if ( $self->_policy_is_restricted() ) {
-            my @filtered_scripts;
-            for my $script (@scripts) {
-                my $rel_path = $script->{relative_path};
-                $rel_path =~ s/^\$KOHA_CRON_PATH\/?//;
+        my @filtered_scripts;
+        for my $script (@scripts) {
+            my $rel_path = $script->{relative_path};
+            $rel_path =~ s/^\$KOHA_CRON_PATH\/?//;
 
-                for my $entry (@$effective_policy) {
-                    my $pattern = $entry->{path};
+            for my $entry (@$effective_policy) {
+                my $pattern = $entry->{path};
 
-                    # Pattern can be exact match or prefix match (e.g., "batch/" matches all in batch dir)
-                    if (   $rel_path eq $pattern
-                        || index( $rel_path, $pattern ) == 0
-                        || $script->{name} eq $pattern )
-                    {
-                        push @filtered_scripts, $script;
-                        last;
-                    }
+                # Pattern can be exact match or prefix match (e.g., "batch/" matches all in batch dir)
+                if (   $rel_path eq $pattern
+                    || index( $rel_path, $pattern ) == 0
+                    || $script->{name} eq $pattern )
+                {
+                    push @filtered_scripts, $script;
+                    last;
                 }
             }
-            @scripts = @filtered_scripts;
         }
+        @scripts = @filtered_scripts;
     }
 
     # Attach policy to scripts that matched an *exact* effective policy entry
@@ -817,6 +813,12 @@ sub validate_command {
     unless ($matched_script) {
         return {
             valid => 0,
+            error => "No scripts are permitted yet. An administrator needs to choose which scripts can be scheduled "
+                . "(Configure > Script Policy, or a server policy file). Provided: $script_path"
+        } unless @$available_scripts;
+
+        return {
+            valid => 0,
             error =>
 "Command must use a script from the approved list. Use the script browser to select a valid script. Provided: $script_path"
         };
@@ -1462,23 +1464,6 @@ sub get_default_policy_text {
     close $fh;
 
     return $text;
-}
-
-=head2 _policy_is_restricted
-
-True if any script policy applies: a server policy file with entries, or
-library policy entries. When true, only scripts matching the effective policy
-may be scheduled -- even if the effective policy is empty, which then means
-no scripts at all (for example a library policy that selects only scripts the
-server policy does not list). When false (nothing configured anywhere) every
-script under C<KOHA_CRON_PATH> is available, as before.
-
-=cut
-
-sub _policy_is_restricted {
-    my ($self) = @_;
-
-    return ( @{ $self->get_server_policy() } || @{ $self->get_library_policy() } ) ? 1 : 0;
 }
 
 =head2 _effective_policy

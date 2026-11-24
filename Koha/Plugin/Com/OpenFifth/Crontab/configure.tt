@@ -99,7 +99,7 @@
                                     <input type="hidden" name="script_policy" id="script_policy" value="[% script_policy | html %]" />
                                     <input type="hidden" id="server_policy" value="[% server_policy | html %]" />
                                     <div class="hint">
-                                        Search and select scripts to allow users to schedule. Leave empty to allow all scripts from KOHA_CRON_PATH.
+                                        Search and select the scripts users may schedule. <strong>If nothing is selected, no scripts can be scheduled.</strong>
                                         <br/><strong>Note:</strong> You can also type directory prefixes (e.g., <code>batch/</code>) to allow all scripts in that directory.
                                         <br/><strong>Note:</strong> Exact scripts (not prefixes) can additionally be marked non-repeatable or restricted to specific hours below the picker.
                                     </div>

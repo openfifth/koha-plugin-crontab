@@ -9,8 +9,11 @@ unshift @INC, "$plugin_dir/Koha/Plugin/Com/OpenFifth/Crontab/lib";
 require Config::Crontab;
 use_ok('Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script');
 
+package FakePlugin;
+sub new           { my ( $class, $policy ) = @_; return bless { policy => $policy }, $class; }
+sub retrieve_data { $_[0]{policy} }
 package FakeCrontab;
-sub new  { my ( $class, $ct ) = @_; return bless { ct => $ct }, $class; }
+sub new  { my ( $class, $ct, $plugin ) = @_; return bless { ct => $ct, plugin => $plugin }, $class; }
 sub read { $_[0]{ct} }
 package main;
 
@@ -68,7 +71,8 @@ my $ct = Config::Crontab->new();
 my $b  = Config::Crontab::Block->new();
 $b->lines( [ Config::Crontab::Env->new( -name => 'KOHA_CRON_PATH', -value => $dir ) ] );
 $ct->last($b);
-my $script = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => FakeCrontab->new($ct) } );
+# An empty policy permits no scripts, so the fixture scripts are listed.
+my $script = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => FakeCrontab->new( $ct, FakePlugin->new("scripts:\n  - path: gather_print_notices.pl\n  - path: runreport.pl\n  - path: plain.pl\n  - path: two_args.pl\n") ) } );
 
 sub check {
     my ($command) = @_;

@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **An empty script policy now means no scripts, not every script.** Previously, with no server policy file and an unset or cleared library policy, every script under `KOHA_CRON_PATH` could be scheduled ("leave empty to allow all"). That is now refused: nothing can be scheduled until the policy lists scripts. **Upgrading installations whose library policy is empty or was never configured lose the ability to add jobs, enable existing ones, or change their commands until an administrator chooses scripts under Configure > Script Policy or sets a server policy file.** Existing crontab entries are untouched. The job list shows a warning when nothing is permitted, and the error message says what to do.
+- The default script policy seeded on a fresh install is trimmed to routine scheduled jobs: `longoverdue.pl`, `update_patrons_category.pl`, `process_message_queue.pl` and `holds/holds_reminder.pl`. `runreport.pl`, `cleanup_database.pl` and `gather_print_notices.pl` are no longer seeded, because of how much they can do with the wrong arguments; add them from the Configure page if wanted.
 - When a server policy file is configured, install no longer seeds the default library policy, which would silently narrow the server policy to the shipped defaults.
 - README gains a "Server-managed policy (for administrators)" section: the file, how it combines with the library policy, and an Ansible sketch.
 - The default script policy seeded on a fresh install now comes from `default-policy.yaml` instead of a list in code. Install refuses to seed an unrestricted policy if that file is missing.

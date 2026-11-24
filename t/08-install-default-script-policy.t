@@ -1,5 +1,5 @@
 use Modern::Perl;
-use Test::More tests => 5;
+use Test::More tests => 6;
 use JSON::MaybeXS qw(decode_json);
 use Path::Tiny qw(path);
 use YAML::XS qw(Load);
@@ -12,14 +12,14 @@ unshift @INC, $plugin_dir;
 use_ok($plugin_module);
 
 my @expected_paths = (
-    'runreport.pl',
-    'cleanup_database.pl',
     'longoverdue.pl',
     'update_patrons_category.pl',
     'process_message_queue.pl',
-    'gather_print_notices.pl',
     'holds/holds_reminder.pl',
 );
+
+# The sharper scripts are deliberately not seeded
+my @not_expected = qw(runreport.pl cleanup_database.pl gather_print_notices.pl);
 
 # Fresh install: no script_policy configured yet
 my $plugin = $plugin_module->new();
@@ -37,6 +37,7 @@ is_deeply(
     [ sort @expected_paths ],
     'install() seeds exactly the expected default allowlist'
 );
+is_deeply( [ grep { my $p = $_; grep { $_ eq $p } @not_expected } @seeded_paths ], [], 'runreport.pl, cleanup_database.pl and gather_print_notices.pl are not in the defaults' );
 
 # Already-configured install is left untouched
 my $custom_yaml = "scripts:\n  - path: batch/custom_report.pl\n";

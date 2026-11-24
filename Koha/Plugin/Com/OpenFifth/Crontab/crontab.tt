@@ -83,6 +83,15 @@
                         </button>
                     </div>
 
+                    [% IF no_scripts_permitted %]
+                    <div class="alert alert-warning">
+                        <strong>No scripts can be scheduled yet.</strong>
+                        An administrator needs to choose which scripts are permitted under
+                        <em>Configure &rsaquo; Script Policy</em>, or set a server policy file.
+                        Until then new jobs cannot be added, and existing jobs cannot be enabled or have their command changed.
+                    </div>
+                    [% END %]
+
                     <!-- Global Environment Variables Section -->
                     <div class="page-section">
                         <div class="card">

@@ -70,10 +70,26 @@ ok( !$m->validate_command('$KOHA_CRON_PATH/dangerous.pl')->{valid},       'valid
 my $dir_server = "scripts:\n  - path: batch/\n";
 is( names( model( undef, $dir_server ) ), 'nightly.pl', 'a server directory entry offers the scripts under it' );
 
-# --- no server policy: the library tier governs, as before ---------------------------
+# --- no server policy: the library tier governs ---------------------------------
 is( names( model( "scripts:\n  - path: approved.pl\n", undef ) ), 'approved.pl', 'no server policy: library policy limits scripts' );
-is( names( model( undef, undef ) ), 'approved.pl,dangerous.pl,nightly.pl,other.pl', 'nothing configured anywhere: unrestricted (documented behaviour)' );
-is( names( model( "scripts: []\n", undef ) ), 'approved.pl,dangerous.pl,nightly.pl,other.pl', 'library cleared with no server policy: unrestricted (documented behaviour)' );
+
+# --- an empty policy means no scripts, never all of them -----------------------------
+is( names( model( undef, undef ) ),         '', 'nothing configured anywhere: no scripts' );
+is( names( model( "scripts: []\n", undef ) ), '', 'library policy cleared, no server policy: no scripts' );
+is( names( model( "", undef ) ),            '', 'blank library policy: no scripts' );
+is( names( model( "not: yaml: [", undef ) ), '', 'unparseable library policy: no scripts' );
+
+my $closed = model( undef, undef );
+my $refused = $closed->validate_command('$KOHA_CRON_PATH/approved.pl');
+ok( !$refused->{valid}, 'validate_command: refused when no policy permits anything' );
+like( $refused->{error}, qr/No scripts are permitted yet.*Configure.*server policy file/s, '  ...with an actionable message' );
+
+my $other = model( "scripts:\n  - path: approved.pl\n", undef )->validate_command('$KOHA_CRON_PATH/other.pl');
+ok( !$other->{valid}, 'validate_command: an unlisted script is refused' );
+like( $other->{error}, qr/approved list/, '  ...with the usual message, since some scripts are permitted' );
+
+# the Configure page still needs to see every script in order to choose from them
+is( join( ',', map { $_->{name} } @{ $closed->get_available_scripts( { bypass_filter => 1 } ) } ), 'approved.pl,dangerous.pl,nightly.pl,other.pl', 'bypass_filter still lists every script for the Configure page' );
 
 # --- tier merging unit checks ------------------------------------------------------------
 my $s = model( undef, undef );

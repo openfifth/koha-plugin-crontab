@@ -11,8 +11,11 @@ use_ok('Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script');
 
 # Minimal stand-in for Cron::File: get_available_scripts() only ever calls
 # ->read() on the crontab instance it is given.
+package FakePlugin;
+sub new           { my ( $class, $policy ) = @_; return bless { policy => $policy }, $class; }
+sub retrieve_data { $_[0]{policy} }
 package FakeCrontab;
-sub new  { my ( $class, $ct ) = @_; return bless { ct => $ct }, $class; }
+sub new  { my ( $class, $ct, $plugin ) = @_; return bless { ct => $ct, plugin => $plugin }, $class; }
 sub read { my ($self) = @_; return $self->{ct}; }
 package main;
 
@@ -26,8 +29,9 @@ my $env_block = Config::Crontab::Block->new();
 $env_block->lines( [ Config::Crontab::Env->new( -name => 'KOHA_CRON_PATH', -value => $cron_dir ) ] );
 $ct->last($env_block);
 
+# An empty policy permits no scripts, so the fixture script must be listed.
 my $script_model =
-  Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => FakeCrontab->new($ct) } );
+  Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => FakeCrontab->new( $ct, FakePlugin->new("scripts:\n  - path: runreport.pl\n") ) } );
 
 # This is how the plugin itself writes commands for newly-created jobs.
 my $relative_result =

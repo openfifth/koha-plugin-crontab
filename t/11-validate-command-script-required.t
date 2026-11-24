@@ -11,8 +11,11 @@ use_ok('Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script');
 
 # Minimal stand-in for Cron::File: get_available_scripts() only ever calls
 # ->read() on the crontab instance it is given.
+package FakePlugin;
+sub new           { my ( $class, $policy ) = @_; return bless { policy => $policy }, $class; }
+sub retrieve_data { $_[0]{policy} }
 package FakeCrontab;
-sub new  { my ( $class, $ct ) = @_; return bless { ct => $ct }, $class; }
+sub new  { my ( $class, $ct, $plugin ) = @_; return bless { ct => $ct, plugin => $plugin }, $class; }
 sub read { my ($self) = @_; return $self->{ct}; }
 package main;
 
@@ -41,8 +44,11 @@ my $env_block = Config::Crontab::Block->new();
 $env_block->lines( [ Config::Crontab::Env->new( -name => 'KOHA_CRON_PATH', -value => $cron_dir ) ] );
 $ct->last($env_block);
 
+# An empty policy permits no scripts, so the fixture scripts are listed -- by
+# prefix, so that neither has an exact policy entry of its own (what this test
+# is about).
 my $script_model =
-  Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => FakeCrontab->new($ct) } );
+  Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => FakeCrontab->new( $ct, FakePlugin->new("scripts:\n  - path: cart\n  - path: legacy\n") ) } );
 
 my $result = $script_model->validate_command("\$KOHA_CRON_PATH/cart_to_shelf.pl --hours 24");
 is( $result->{valid}, 1, 'command validates against the approved script list' );

@@ -63,6 +63,13 @@ sub admin {
 
     # Show the modern job management interface
     my $template = $self->get_template( { file => 'crontab.tt' } );
+
+    # Tell the admin up front if nothing can be scheduled yet, rather than
+    # leaving them with an empty script browser and an unexplained error.
+    my $crontab      = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new( { plugin => $self } );
+    my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => $crontab } );
+    $template->param( no_scripts_permitted => scalar @{ $script_model->get_available_scripts() } ? 0 : 1 );
+
     $self->output_html( $template->output() );
 }
 
