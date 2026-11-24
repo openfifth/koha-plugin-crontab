@@ -1,0 +1,38 @@
+# Default script policy shipped with the Crontab plugin.
+#
+# This file is read in two places:
+#
+#   1. On a fresh install, its `scripts` list is copied into the library
+#      script policy (the one edited on the plugin's Configure page). After
+#      that the copy is yours: edit or clear it freely, upgrades never
+#      overwrite it.
+#
+# The same schema is accepted by the server policy file
+# (koha_plugin_crontab_script_policy in koha-conf.xml) and the library
+# policy; see the README for how the two tiers combine.
+
+# Which scripts under $KOHA_CRON_PATH may be scheduled. A script that is not
+# listed here cannot be added to the crontab through the plugin.
+#
+# Listing a script lets anyone who can use the plugin run it with any
+# arguments, as the Koha user: this limits which scripts run, not what they
+# do. runreport.pl can email any saved report's output, cleanup_database.pl
+# can purge logs (including the audit trail), and gather_print_notices.pl
+# writes to any directory it is given. Trim this list to what you are
+# comfortable with, and see "What the script policy does and does not limit"
+# in the README.
+#
+# Each entry takes:
+#   path              Script path relative to $KOHA_CRON_PATH
+#                     (e.g. "runreport.pl" or "holds/holds_reminder.pl")
+#   non_repeatable    true: only one scheduled instance of the script at a time
+#   allowed_hours     Hours of the day the job may run in, e.g. "0-5,22-23"
+#   required_options  Long option names that must be present in the command
+scripts:
+  - path: runreport.pl
+  - path: cleanup_database.pl
+  - path: longoverdue.pl
+  - path: update_patrons_category.pl
+  - path: process_message_queue.pl
+  - path: gather_print_notices.pl
+  - path: holds/holds_reminder.pl

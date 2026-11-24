@@ -1397,14 +1397,22 @@ allowed_hours }.
 sub get_server_policy {
     my ($self) = @_;
 
-    my $file_path = C4::Context->config('koha_plugin_crontab_script_policy');
-    return [] unless $file_path && -f $file_path;
+    return $self->_load_policy_source( $self->_server_policy_text() );
+}
 
-    open my $fh, '<', $file_path or return [];
+# Raw text of the server-tier policy file, or undef if none is configured
+# or it is unreadable.
+sub _server_policy_text {
+    my ($self) = @_;
+
+    my $file_path = C4::Context->config('koha_plugin_crontab_script_policy');
+    return unless $file_path && -f $file_path;
+
+    open my $fh, '<', $file_path or return;
     my $yaml_text = do { local $/; <$fh> };
     close $fh;
 
-    return $self->_load_policy_source($yaml_text);
+    return $yaml_text;
 }
 
 =head2 get_library_policy
@@ -1426,6 +1434,25 @@ sub get_library_policy {
     return [] unless $plugin;
 
     return $self->_load_policy_source( $plugin->retrieve_data('script_policy') );
+}
+
+=head2 get_default_policy_text
+
+Raw text of the default policy document shipped with the plugin
+(C<default-policy.yaml>), which holds the default script list seeded on
+install. Returns undef if the file cannot be read.
+
+=cut
+
+sub get_default_policy_text {
+    my ($self) = @_;
+
+    my $file = dirname(__FILE__) . '/../default-policy.yaml';
+    open my $fh, '<', $file or return;
+    my $text = do { local $/; <$fh> };
+    close $fh;
+
+    return $text;
 }
 
 =head2 _effective_policy

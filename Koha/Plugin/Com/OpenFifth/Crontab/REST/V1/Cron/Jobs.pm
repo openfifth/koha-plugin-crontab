@@ -496,7 +496,16 @@ sub update {
             { crontab => $crontab }
           );
 
-        if ( my $err = _fields_error( $job_model, $body ) ) {
+        my $existing_jobs = $job_model->get_plugin_managed_jobs();
+        my ($existing_job) = grep { $_->{id} eq $job_id } @$existing_jobs;
+        unless ($existing_job) {
+            return $c->render(
+                status  => 404,
+                openapi => { error => "Job not found" }
+            );
+        }
+
+        if ( my $err = _fields_error( $job_model, $body, $existing_job->{environment} ) ) {
             return $c->render( status => 400, openapi => { error => $err } );
         }
 
@@ -522,15 +531,6 @@ sub update {
         # to a known script (e.g. the allowlist has tightened since this
         # job was created), policy is simply not enforced rather than
         # blocking an unrelated edit.
-        my $existing_jobs = $job_model->get_plugin_managed_jobs();
-        my ($existing_job) = grep { $_->{id} eq $job_id } @$existing_jobs;
-        unless ($existing_job) {
-            return $c->render(
-                status  => 404,
-                openapi => { error => "Job not found" }
-            );
-        }
-
         my $effective_command  = $body->{command}  // $existing_job->{command};
         my $effective_schedule = $body->{schedule} // $existing_job->{schedule};
 
@@ -1081,15 +1081,20 @@ sub _script_args_error {
 
 Validate the free-text fields of a request body (name, description,
 schedule, command, environment) with C<Cron::Job-E<gt>validate_job_fields>,
-including the environment-variable deny list. Returns an error string, or
-undef if the fields are acceptable.
+and refuse any attempt to add or change a job-level environment variable
+(C<Cron::Job-E<gt>check_environment_change>). C<$existing_environment> is
+the environment the job already has, if it is being updated. Returns an
+error string, or undef if the request is acceptable.
 
 =cut
 
 sub _fields_error {
-    my ( $job_model, $body ) = @_;
+    my ( $job_model, $body, $existing_environment ) = @_;
 
-    my $check = $job_model->validate_job_fields( $body, check_env_policy => 1 );
+    my $check = $job_model->validate_job_fields($body);
+    return $check->{error} unless $check->{valid};
+
+    $check = $job_model->check_environment_change( $body->{environment}, $existing_environment );
     return $check->{valid} ? undef : $check->{error};
 }
 

@@ -296,14 +296,16 @@
                             </div>
                         </div>
 
-                        <div class="form-group mb-3">
+                        <div class="form-group mb-3" id="environment-group" style="display: none;">
                             <label class="form-label">Environment Variables</label>
-                            <div id="environment-container">
-                                <!-- Environment variables will be added here -->
+                            <div class="form-text mb-2">
+                                This job sets environment variables. In a crontab these stay in effect for every
+                                later entry, not just this job, so new ones can no longer be added. You can remove
+                                them here; set variables once in the crontab header instead.
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="add-env-var">
-                                <i class="fa fa-plus"></i> Add Variable
-                            </button>
+                            <div id="environment-container">
+                                <!-- Existing environment variables are listed here -->
+                            </div>
                         </div>
             </div>
             <div class="modal-footer">
@@ -429,11 +431,6 @@
             $('.schedule-preset').on('click', function(e) {
                 e.preventDefault();
                 $('#job-schedule').val($(this).data('schedule'));
-            });
-
-            // Add environment variable
-            $('#add-env-var').on('click', function() {
-                addEnvironmentVariable();
             });
 
             // Script picker
@@ -703,13 +700,16 @@
                     // Try to parse command to extract base script
                     tryMatchCommandToScript(job.command);
 
-                    // Clear and populate environment variables
+                    // List any environment variables the job already has (removable,
+                    // but none can be added or changed)
                     $('#environment-container').empty();
-                    if (job.environment && Object.keys(job.environment).length > 0) {
+                    let hasEnvironment = !!(job.environment && Object.keys(job.environment).length > 0);
+                    if (hasEnvironment) {
                         Object.keys(job.environment).forEach(function(key) {
                             addEnvironmentVariable(key, job.environment[key]);
                         });
                     }
+                    $('#environment-group').toggle(hasEnvironment);
                 },
                 error: function(xhr, status, error) {
                     showMessage('Failed to load job: ' + error, 'danger');
@@ -749,6 +749,7 @@
         function clearJobForm() {
             $('#jobForm')[0].reset();
             $('#environment-container').empty();
+            $('#environment-group').hide();
             $('#base-script-path').val('');
             $('#script-params-container').hide();
             $('#script-description').hide();
@@ -791,10 +792,10 @@
             let envHtml = `
                 <div class="row mb-2 env-var-row">
                     <div class="col-md-4">
-                        <input type="text" class="form-control env-key" placeholder="Variable name" value="${key}">
+                        <input type="text" class="form-control env-key" placeholder="Variable name" value="${key}" readonly>
                     </div>
                     <div class="col-md-6">
-                        <input type="text" class="form-control env-value" placeholder="Variable value" value="${value}">
+                        <input type="text" class="form-control env-value" placeholder="Variable value" value="${value}" readonly>
                     </div>
                     <div class="col-md-2">
                         <button type="button" class="btn btn-sm btn-outline-danger remove-env-var">

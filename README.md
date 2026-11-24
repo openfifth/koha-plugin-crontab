@@ -19,7 +19,34 @@ The plugin provides a configuration page accessible via the "Configure" action i
 
 Both allowlists can also be configured via the koha-conf.xml file (see below).
 
-On a fresh install, before any of this is configured, the Script Policy defaults to a curated allowlist of commonly-used scripts (`runreport.pl`, `cleanup_database.pl`, `longoverdue.pl`, `update_patrons_category.pl`, `process_message_queue.pl`, `gather_print_notices.pl`, `holds/holds_reminder.pl`) rather than allowing every script under `KOHA_CRON_PATH`. This is only seeded once, at install time — it can be freely edited or cleared from the Configure page afterwards, and upgrading an existing install never overwrites a policy you've already configured.
+On a fresh install, before any of this is configured, the Script Policy defaults to a curated allowlist of commonly-used scripts rather than allowing every script under `KOHA_CRON_PATH`. The defaults live in [`default-policy.yaml`](Koha/Plugin/Com/OpenFifth/Crontab/default-policy.yaml) inside the plugin. This is only seeded once, at install time — it can be freely edited or cleared from the Configure page afterwards, and upgrading an existing install never overwrites a policy you've already configured.
+
+## Policy files
+
+The script policy is a YAML document. The same schema is used by the server policy file (see `koha_plugin_crontab_script_policy` below) and is what the Configure page stores for the library policy. The shipped [`default-policy.yaml`](Koha/Plugin/Com/OpenFifth/Crontab/default-policy.yaml) is a complete, commented example.
+
+```yaml
+# Which scripts under $KOHA_CRON_PATH may be scheduled. A script not listed here
+# cannot be added to the crontab through the plugin.
+scripts:
+  - path: runreport.pl
+  - path: cleanup_database.pl
+    non_repeatable: true          # only one scheduled instance at a time
+    allowed_hours: "0-5,22-23"    # only run overnight
+  - path: longoverdue.pl
+    required_options: [lost, charge]   # must be present in the command
+  - path: holds/holds_reminder.pl
+```
+
+`path` is relative to `KOHA_CRON_PATH`. `allowed_hours` takes hours and ranges (`"2"`, `"0-5"`, `"0-5,22-23"`).
+
+## Environment variables
+
+Jobs cannot set environment variables. In a crontab an environment line is not scoped to the job next to it: it stays in effect for every entry that follows it in the file, managed by this plugin or not, until it is set again. A "per-job" `MAILTO=` would silently redirect the output of every later job, and a `KOHA_CRON_PATH` or `PERL5OPT` could redirect or hijack every script that follows.
+
+Set variables once, in the crontab header, where they are explicit. They are shown read-only on the plugin's page.
+
+A job that already carries environment variables (from an older version, or a hand-edited crontab) keeps working, and the variables can be removed from the job's edit form, but none can be added or changed.
 
 ## koha-conf.xml Settings
 
@@ -33,7 +60,7 @@ By default the plugin will use the Koha user's crontab. If this option is set, i
 ### koha_plugin_crontab_script_policy
 
 `<koha_plugin_crontab_script_policy>/etc/koha/plugins/crontab-script-policy.yaml</koha_plugin_crontab_script_policy>`
-If set, points to a YAML file defining a server-enforced ceiling on which scripts may be scheduled and what scheduling constraints apply to them. The library's own Script Policy setting (configured via the Configure page) can only select a subset of what this file allows, can only tighten (never loosen) any `non_repeatable`/`allowed_hours` it sets, and can only add to (never remove from) any `required_options` it sets. See the plugin's Configure page for the schema. If this option is not set, the library's Script Policy setting alone governs, as before.
+If set, points to a YAML file defining a server-enforced ceiling on which scripts may be scheduled and what scheduling constraints apply to them. The library's own Script Policy setting (configured via the Configure page) can only select a subset of what this file allows, can only tighten (never loosen) any `non_repeatable`/`allowed_hours` it sets, and can only add to (never remove from) any `required_options` it sets. If this option is not set, the library's Script Policy setting alone governs, as before.
 
 ### koha_plugin_crontab_user_allowlist
 
@@ -44,6 +71,16 @@ even if the patron has the admin plugins permission.
 ## Security Considerations
 
 **IMPORTANT**: This plugin executes shell commands with instance-level permissions. Please observe the following security best practices:
+
+### What the script policy does and does not limit
+
+The script policy limits **which scripts** can be scheduled, and can require options (`required_options`), restrict hours and prevent duplicate instances. It does **not** restrict the values of a script's arguments, and it is not a sandbox: an allowlisted script can do anything it can do, with any arguments, as the Koha user. Treat access to the plugin as equivalent to running the allowlisted scripts yourself. In particular, for the scripts in the shipped defaults:
+
+- `runreport.pl` runs any saved report and can email or SFTP its output (`--to`, `--from`, `--sftp-dest-id`), so it can read whatever a saved report can read.
+- `cleanup_database.pl` deletes data by age, including Koha's action logs (`--logs`) and sessions. A job with a short retention shortens the audit trail, including the entries this plugin writes when logging is enabled.
+- `gather_print_notices.pl` writes files to whatever directory it is given, anywhere the Koha user can write.
+
+Remove any script from the policy that the people who can use the plugin shouldn't be able to use this way, and keep the user allowlist (below) tight.
 
 ### Permission Management
 

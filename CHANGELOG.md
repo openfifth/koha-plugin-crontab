@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Jobs can no longer set environment variables.** In a crontab an environment line is not scoped to the job beside it: it stays in effect for every later entry in the file, managed by this plugin or not (verified against Debian cron, both `/etc/cron.d` and user crontabs). A "per-job" `MAILTO` or `TZ` silently changed every job after it, and `KOHA_CRON_PATH` (expanded in the command the plugin writes), `KOHA_CONF`, `PERL5OPT`, `LD_PRELOAD`, `PATH` and similar let an approved script load or run something else. The add, update and migrate endpoints now reject any new environment variable (`Cron::Job::check_environment_change`). Set variables once in the crontab header instead.
+- A job that already carries environment variables keeps working and can have them removed from its edit form, but none can be added or changed. Existing environment lines still leak into the jobs after them until removed, so installations should audit for jobs that set them, in particular `KOHA_CRON_PATH`.
+
+### Added
+
+- `default-policy.yaml`, a commented example of the script policy schema, shipped in the plugin. README gains "Policy files" and "Environment variables" sections, and a "What the script policy does and does not limit" note: the policy restricts which scripts run, not their argument values, so allowlisting a script grants whatever it can do (for example `runreport.pl` emailing any saved report, `cleanup_database.pl` purging logs).
+
+### Changed
+
+- The default script policy seeded on a fresh install now comes from `default-policy.yaml` instead of a list in code. Install refuses to seed an unrestricted policy if that file is missing.
+- The job edit form lists a job's existing environment variables read-only (removable) and no longer offers to add one.
+
 ## [1.6.8] - 2026-11-24
 
 ### Security

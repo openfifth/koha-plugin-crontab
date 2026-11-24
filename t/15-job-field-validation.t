@@ -18,7 +18,7 @@ my %base = (
 );
 
 ok( $job->validate_job_fields( \%base )->{valid}, 'ordinary job fields are valid' );
-ok( $job->validate_job_fields( { %base, environment => { MY_VAR => 'x y', _OTHER1 => '' } } )->{valid}, 'ordinary environment is valid' );
+ok( $job->validate_job_fields( { %base, environment => { MY_VAR => 'x y', _OTHER1 => '' } } )->{valid}, 'well-formed environment is valid (shape only; see check_environment_change)' );
 ok( $job->validate_job_fields( {} )->{valid}, 'absent fields are not checked' );
 
 # --- newline / control characters in any single-line field ---------------
@@ -47,14 +47,6 @@ ok( !$job->validate_job_fields( { %base, environment => { FOO => "x\ny" } } )->{
 ok( !$job->validate_job_fields( { %base, environment => { FOO => undef } } )->{valid},  'rejects undef environment value' );
 ok( !$job->validate_job_fields( { %base, environment => [] } )->{valid},               'rejects non-object environment' );
 
-# Deny-list only applies when asked (existing jobs keep working; the REST
-# layer asks for it on new input).
-for my $name (qw(PERL5OPT PERL5LIB PERLLIB LD_PRELOAD LD_LIBRARY_PATH PATH BASH_ENV ENV IFS SHELL PYTHONPATH RUBYOPT NODE_OPTIONS perl5opt)) {
-    ok( $job->validate_job_fields( { environment => { $name => 'x' } } )->{valid}, "$name accepted without policy check (existing data)" );
-    my $r = $job->validate_job_fields( { environment => { $name => 'x' } }, check_env_policy => 1 );
-    ok( !$r->{valid}, "$name refused with check_env_policy" );
-}
-ok( $job->validate_job_fields( { environment => { KOHA_CONF => '/etc/koha/sites/x/koha-conf.xml', TZ => 'UTC', MAILTO => 'a@b.c' } }, check_env_policy => 1 )->{valid}, 'KOHA_CONF, TZ and MAILTO stay allowed' );
 
 # --- create_job_block is a last line of defence ---------------------------
 for my $case (

@@ -96,28 +96,21 @@ The crontab is a line-oriented file, so a newline in any value written
 into it -- a comment (name/description), an environment variable, the
 schedule or the command -- would start a new, attacker-controlled crontab
 line, running arbitrary commands regardless of the script allowlist. Every
-field is therefore required to be single-line, environment variable names
-must be plain identifiers, and (with C<check_env_policy>) environment
-variables that change how the interpreter or dynamic loader behaves
-(C<PERL5OPT>, C<LD_PRELOAD>, C<PATH>, ...) are refused: setting them would
-let an approved script load arbitrary code.
+field is therefore required to be single-line, and environment variable
+names must be plain identifiers.
 
-    my $check = $job->validate_job_fields( $data, check_env_policy => 1 );
+    my $check = $job->validate_job_fields($data);
+
+This checks the shape of the data only. Whether a job may set environment
+variables at all is a separate rule: see C<check_environment_change>.
 
 Only fields present in C<$data> are checked. Returns
 C<< { valid => 1 } >> or C<< { valid => 0, error => '...' } >>.
 
 =cut
 
-my $UNSAFE_ENV_NAME = qr/^(?:
-      LD_\w*|DYLD_\w*|GCONV_PATH|HOSTALIASES|LOCALDOMAIN|NLSPATH
-    | PATH|IFS|SHELL|ENV|BASH_ENV|BASH_FUNC_\w*|PS4|PROMPT_COMMAND
-    | PERL5?OPT|PERL5LIB|PERLLIB|PERL5DB|PERL5SHELL|PERL_\w+
-    | PYTHON\w*|RUBY\w*|NODE_OPTIONS|NODE_PATH|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|CLASSPATH
-)$/xi;
-
 sub validate_job_fields {
-    my ( $self, $data, %opts ) = @_;
+    my ( $self, $data ) = @_;
 
     my %limits = ( name => 255, description => 2000, schedule => 255, command => 4096 );
     for my $field (qw(name description schedule command)) {
@@ -139,9 +132,56 @@ sub validate_job_fields {
                 unless $name =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
             return { valid => 0, error => "Environment variable '$name' must have a single-line text value" }
                 if !defined $value || ref $value || $value =~ /[\r\n\0]/;
-            return { valid => 0, error => "Environment variable '$name' is not permitted: it changes how scripts are loaded or executed" }
-                if $opts{check_env_policy} && $name =~ $UNSAFE_ENV_NAME;
         }
+    }
+
+    return { valid => 1 };
+}
+
+=head2 check_environment_change
+
+Jobs cannot set environment variables. In a crontab an environment line is
+not scoped to the job beside it: it stays in effect for every entry that
+follows it in the file -- managed by this plugin or not -- until it is set
+again, so a "job-level" variable is really a change to every later job
+(a C<MAILTO> that redirects other jobs' output, a C<KOHA_CRON_PATH> that
+makes an approved script name resolve to a different file, C<PERL5OPT>
+loading arbitrary code). Variables belong in the crontab header, which the
+plugin shows read-only.
+
+    my $check = $job->check_environment_change( $requested, $existing );
+
+C<$requested> is the environment submitted with an add or update;
+C<$existing> is what the job already has (none, for a new job). The
+request is acceptable if it adds and changes nothing: absent, empty, or a
+subset of C<$existing> with the same values. That lets a job that already
+carries variables be edited, and have them removed, without being able to
+set new ones.
+
+Returns C<< { valid => 1 } >> or C<< { valid => 0, error => '...' } >>.
+
+=cut
+
+sub check_environment_change {
+    my ( $self, $requested, $existing ) = @_;
+
+    return { valid => 1 } unless defined $requested;
+    return { valid => 0, error => "Field 'environment' must be an object of NAME => value pairs" }
+        unless ref $requested eq 'HASH';
+
+    $existing = {} unless ref $existing eq 'HASH';
+    my $trim = sub { my $v = shift // ''; $v =~ s/^\s+|\s+$//g; $v };
+
+    for my $name ( sort keys %$requested ) {
+        next if exists $existing->{$name} && $trim->( $existing->{$name} ) eq $trim->( $requested->{$name} );
+
+        return {
+            valid => 0,
+            error => "Job-level environment variables are not supported ('"
+                . ( $name =~ s/[^\x20-\x7e]/?/gr )
+                . "'): in a crontab they stay in effect for every later entry, not just this job. "
+                . "Set variables in the crontab header instead.",
+        };
     }
 
     return { valid => 1 };

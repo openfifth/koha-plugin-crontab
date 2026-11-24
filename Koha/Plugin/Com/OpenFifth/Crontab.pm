@@ -307,21 +307,20 @@ sub install() {
     }
 
     # Seed a default script policy on a fresh install so the plugin doesn't
-    # ship wide open (every script under KOHA_CRON_PATH schedulable). Never
+    # ship wide open (every script under KOHA_CRON_PATH schedulable). The
+    # defaults live in default-policy.yaml rather than in code. Never
     # overwrites an already-configured policy.
     unless ( defined $self->retrieve_data('script_policy') ) {
-        my @default_scripts = (
-            'runreport.pl',
-            'cleanup_database.pl',
-            'longoverdue.pl',
-            'update_patrons_category.pl',
-            'process_message_queue.pl',
-            'gather_print_notices.pl',
-            'holds/holds_reminder.pl',
-        );
-        $self->store_data({
-            script_policy => Dump( { scripts => [ map { { path => $_ } } @default_scripts ] } ),
-        });
+        my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => {} } );
+        my $defaults     = $script_model->_load_policy_source( $script_model->get_default_policy_text() );
+
+        unless (@$defaults) {
+            warn "Crontab plugin: default-policy.yaml is missing or has no scripts; "
+                . "refusing to install with an unrestricted script policy";
+            return 0;
+        }
+
+        $self->store_data( { script_policy => Dump( { scripts => $defaults } ) } );
     }
 
     # Store installation success
