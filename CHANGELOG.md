@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **The Configure page could be changed by a cross-site request.** Settings were saved whenever `save=1` appeared in the request, whatever the HTTP method, and the form submitted with GET and no CSRF token. Koha's CSRF protection covers POST requests only, so a link or redirect opened by an administrator could change the user allowlist, the script policy, logging and backup retention (including replacing the script policy with the attacker's choice) with no token and no interaction beyond the page load. Confirmed against 1.7.0: a bare `GET` with `save=1` changed the saved settings. The form now submits by POST with a CSRF token and `op=cud-save`, and the server only saves a POST carrying `op=cud-save`; any other request just renders the form. Installations should upgrade.
+
+### Changed
+
+- **Requires Koha 25.05 or later** (was 22.11). Needed for `csrf-token.inc` and the current staff plugin wrapper.
+- The Configure page and the access-denied page now use core's `wrapper-staff-tool-plugin.inc`: standard page title, breadcrumbs, sidebar and messages, instead of a hand-built page skeleton.
+- The Configure page's inline script and style carry Koha's Content-Security-Policy nonce, and its libraries (select2) are loaded after jQuery, so the page keeps working if an administrator sets `csp_mode` to `enabled`.
+- The Cancel link and hidden form fields on the Configure page no longer hard-code or leave unescaped the plugin class and method.
+
 ## [1.7.0] - 2026-11-24
 
 ### Security

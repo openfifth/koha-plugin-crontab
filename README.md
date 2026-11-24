@@ -181,6 +181,8 @@ Once set up is complete you will need to alter your UseKohaPlugins system prefer
 
 ## Dependencies
 
+This plugin requires **Koha 25.05 or later**.
+
 This plugin has **no external dependencies**. All required modules (Config::Crontab, UUID) are either bundled with the plugin or already available in Koha core.
 
 ## Download and install the plugin

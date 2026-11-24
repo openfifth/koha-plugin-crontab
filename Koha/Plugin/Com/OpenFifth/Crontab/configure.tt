@@ -1,11 +1,13 @@
 [% USE Koha %]
 [% USE raw %]
+[% USE Asset %]
 [% PROCESS 'i18n.inc' %]
-[% SET footerjs = 1 %]
-[% INCLUDE 'doc-head-open.inc' %]
-<title>Crontab: Configure &rsaquo; Plugins &rsaquo; Administration &rsaquo; Koha</title>
-[% INCLUDE 'doc-head-close.inc' %]
-<style>
+[% SET method = 'configure' %]
+[% SET plugin_title = t("Crontab") %]
+[% WRAPPER 'wrapper-staff-tool-plugin.inc' %]
+[% Asset.css("lib/select2/css/select2.min.css") | $raw %]
+[% Asset.css("css/select2.css") | $raw %]
+<style nonce="[% Koha.CSPNonce | $raw %]">
 /* Koha's staff-global.css sets `input[type=checkbox] { height: unset; }`, which is
    more specific than Bootstrap 5's `.form-check-input` rule and collapses these
    checkboxes to a sliver. Restore Bootstrap's sizing for ours specifically
@@ -16,120 +18,104 @@
     height: 1em;
 }
 </style>
-</head>
 
-<body id="crontab_plugin_configure" class="plugin">
-    [% WRAPPER 'header.inc' %]
-        [% INCLUDE 'prefs-admin-search.inc' %]
-    [% END %]
+<div id="crontab_plugin_configure">
+    <h1>Crontab: Configuration</h1>
 
-    [% WRAPPER 'sub-header.inc' %]
-        [% WRAPPER breadcrumbs %]
-            [% WRAPPER breadcrumb_item %]
-                <a href="/cgi-bin/koha/admin/admin-home.pl">Administration</a>
-            [% END %]
-            [% WRAPPER breadcrumb_item %]
-                <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
-            [% END %]
-            [% WRAPPER breadcrumb_item bc_active= 1 %]
-                <span>Crontab: Configure</span>
-            [% END %]
-        [% END #/ WRAPPER breadcrumbs %]
-    [% END #/ WRAPPER sub-header.inc %]
+    <form method="post" action="/cgi-bin/koha/plugins/run.pl">
+        [% INCLUDE 'csrf-token.inc' %]
+        <input type="hidden" name="class" value="[% CLASS | html %]" />
+        <input type="hidden" name="method" value="[% METHOD | html %]" />
+        <input type="hidden" name="op" value="cud-save" />
 
-    <div class="main container-fluid">
-        <div class="row">
-            <div class="col-md-10 order-md-2 order-sm-1">
-                <main>
-                    <h1>Crontab: Configuration</h1>
-                    <!-- Notice our form here has no 'action', this is good, it means that our forms will always get passed back to 'plugins/run.pl'. You could hard code it instead if you prefer -->
-                    <form method="get">
-                        <!-- Always pass these two parameters so the plugin system knows what to execute! -->
-                        <input type="hidden" name="class" value="[% CLASS %]"/>
-                        <input type="hidden" name="method" value="[% METHOD %]"/>
+    <fieldset class="rows">
+        <legend>Global Settings</legend>
 
-                        <fieldset class="rows">
-                            <legend>Global Settings</legend>
+        <ol>
+            <li>
+                <label for="enable_logging">Enable logging: </label>
+                <select name="enable_logging">
+                    [% IF enable_logging == 'No' %]
+                        <option value="No" selected="selected">No</option>
+                    [% ELSE %]
+                        <option value="No">No</option>
+                    [% END %]
 
-                            <ol>
-                                <li>
-                                    <label for="enable_logging">Enable logging: </label>
-                                    <select name="enable_logging">
-                                        [% IF enable_logging == 'No' %]
-                                            <option value="No" selected="selected">No</option>
-                                        [% ELSE %]
-                                            <option value="No">No</option>
-                                        [% END %]
+                    [% IF enable_logging == 'Yes' %]
+                        <option value="Yes" selected="selected">Yes</option>
+                    [% ELSE %]
+                        <option value="Yes">Yes</option>
+                    [% END %]
+                </select>
+            </li>
+            <li>
+                <label for="backup_retention">Crontab backup retention: </label>
+                <input type="number" name="backup_retention" id="backup_retention"
+                       value="[% backup_retention || 10 %]" min="1" max="100" size="5" />
+                <div class="hint">
+                    Number of crontab backup files to keep.
+                    Older backups will be automatically deleted. Default: 10
+                </div>
+            </li>
+        </ol>
+    </fieldset>
 
-                                        [% IF enable_logging == 'Yes' %]
-                                            <option value="Yes" selected="selected">Yes</option>
-                                        [% ELSE %]
-                                            <option value="Yes">Yes</option>
-                                        [% END %]
-                                    </select>
-                                </li>
-                                <li>
-                                    <label for="backup_retention">Crontab backup retention: </label>
-                                    <input type="number" name="backup_retention" id="backup_retention"
-                                           value="[% backup_retention || 10 %]" min="1" max="100" size="5" />
-                                    <div class="hint">
-                                        Number of crontab backup files to keep.
-                                        Older backups will be automatically deleted. Default: 10
-                                    </div>
-                                </li>
-                            </ol>
-                        </fieldset>
+    <fieldset class="rows">
+        <legend>Security Settings</legend>
 
-                        <fieldset class="rows">
-                            <legend>Security Settings</legend>
+        <ol>
+            <li>
+                <label for="patron_allowlist">User allowlist: </label>
+                <select name="patron_allowlist" id="patron_allowlist" multiple="multiple"></select>
+                <input type="hidden" name="user_allowlist" id="user_allowlist" value="[% user_allowlist | html %]" />
+                <div class="hint">
+                    Search and select patrons allowed to use this plugin. Leave empty to allow all staff users.
+                    <br/><strong>Note:</strong> Superlibrarians always have access regardless of this setting.
+                </div>
+            </li>
+            <li>
+                <label for="script_picker">Script policy: </label>
+                <select name="script_picker" id="script_picker" multiple="multiple"></select>
+                <input type="hidden" name="script_policy" id="script_policy" value="[% script_policy | html %]" />
+                <input type="hidden" id="server_policy" value="[% server_policy | html %]" />
+                <div class="hint">
+                    Search and select the scripts users may schedule. <strong>If nothing is selected, no scripts can be scheduled.</strong>
+                    <br/><strong>Note:</strong> You can also type directory prefixes (e.g., <code>batch/</code>) to allow all scripts in that directory.
+                    <br/><strong>Note:</strong> Exact scripts (not prefixes) can additionally be marked non-repeatable or restricted to specific hours below the picker.
+                </div>
+                <div id="script_policy_panels"></div>
+            </li>
+        </ol>
+    </fieldset>
 
-                            <ol>
-                                <li>
-                                    <label for="patron_allowlist">User allowlist: </label>
-                                    <select name="patron_allowlist" id="patron_allowlist" multiple="multiple"></select>
-                                    <input type="hidden" name="user_allowlist" id="user_allowlist" value="[% user_allowlist | html %]" />
-                                    <div class="hint">
-                                        Search and select patrons allowed to use this plugin. Leave empty to allow all staff users.
-                                        <br/><strong>Note:</strong> Superlibrarians always have access regardless of this setting.
-                                    </div>
-                                </li>
-                                <li>
-                                    <label for="script_picker">Script policy: </label>
-                                    <select name="script_picker" id="script_picker" multiple="multiple"></select>
-                                    <input type="hidden" name="script_policy" id="script_policy" value="[% script_policy | html %]" />
-                                    <input type="hidden" id="server_policy" value="[% server_policy | html %]" />
-                                    <div class="hint">
-                                        Search and select the scripts users may schedule. <strong>If nothing is selected, no scripts can be scheduled.</strong>
-                                        <br/><strong>Note:</strong> You can also type directory prefixes (e.g., <code>batch/</code>) to allow all scripts in that directory.
-                                        <br/><strong>Note:</strong> Exact scripts (not prefixes) can additionally be marked non-repeatable or restricted to specific hours below the picker.
-                                    </div>
-                                    <div id="script_policy_panels"></div>
-                                </li>
-                            </ol>
-                        </fieldset>
+    <fieldset class="action">
+        <input class="btn btn-primary" type="submit" value="Save" />
+        <a class="cancel" href="/cgi-bin/koha/plugins/run.pl?class=[% CLASS | uri %]&amp;method=[% METHOD | uri %]">Cancel</a>
+    </fieldset>
+    </form>
+</div>
 
-                        <fieldset class="action">
-                            <input type="hidden" name="save" value="1" />
-                            <input class="btn btn-primary" type="submit" value="Save" />
-                            <a class="cancel" href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3AOpenFifth%3A%3ACrontab&method=configure">Cancel</a>
-                        </fieldset>
-                    </form>
-                </main>
-            </div> <!-- /.col-md-10.order-md-2 -->
-            <div class="col-md-2 order-sm-2 order-md-1">
-                <aside>
-                    [% INCLUDE 'admin-menu.inc' %]
-                </aside>
-            </div> <!-- /.col-md-2.order-md-1 -->
-        </div>
-    </div>
+[%# The wrapper loads jQuery and Koha's scripts at the bottom of the page and
+    replaces the page-level jsinclude, so this script waits for the DOM, loads
+    the libraries it needs after jQuery, and then runs. #%]
+[% SET select2_src = Asset.js("lib/select2/js/select2.min.js").match('src="([^"]+)"').0 %]
+[% SET select2_init_src = Asset.js("js/select2.js").match('src="([^"]+)"').0 %]
+<script nonce="[% Koha.CSPNonce | $raw %]">
+    document.addEventListener("DOMContentLoaded", function () {
+        function loadScript(src) {
+            return new Promise(function (resolve, reject) {
+                let script = document.createElement("script");
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = function () { reject(new Error("Failed to load " + src)); };
+                document.head.appendChild(script);
+            });
+        }
 
-    [% MACRO jsinclude BLOCK %]
-        [% INCLUDE 'select2.inc' %]
-        <script>
-            $(document).ready(function() {
-                $('#navmenulist a[href$="/cgi-bin/koha/plugins/plugins-home.pl"]').addClass("current");
-
+        loadScript("[% select2_src | $raw %]").then(function () {
+            return loadScript("[% select2_init_src | $raw %]");
+        }).then(function () {
+        $(document).ready(function() {
                 // Initialize patron allowlist select2
                 $("#patron_allowlist").kohaSelect({
                     width: "50%",
@@ -168,7 +154,7 @@
                         if (!patron.patron_id) {
                             return patron.text;
                         }
-
+        
                         let $patron = $("<div></div>")
                             .append(
                                 "" +
@@ -189,7 +175,7 @@
                     },
                     placeholder: __("Search for patrons to allow access")
                 });
-
+        
                 // Load existing patrons if any
                 let existingIds = $("#user_allowlist").val();
                 if (existingIds) {
@@ -211,12 +197,12 @@
                         }
                     });
                 }
-
+        
                 // Initialize script policy picker
                 let allScripts = [];
                 let libraryPolicyState = {};
                 let serverPolicy = {};
-
+        
                 try {
                     let serverPolicyData = JSON.parse($("#server_policy").val() || '{"scripts":[]}');
                     (serverPolicyData.scripts || []).forEach(function(entry) {
@@ -225,41 +211,41 @@
                 } catch (e) {
                     console.error('Failed to parse server policy', e);
                 }
-
+        
                 function isExactScript(path) {
                     return allScripts.some(function(candidate) {
                         let relative = candidate.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '');
                         return relative === path || candidate.name === path;
                     });
                 }
-
+        
                 function emptyLibraryState() {
                     return { non_repeatable: false, allowed_hours: '', required_options: [] };
                 }
-
+        
                 let scriptOptionsCache = {};
-
+        
                 function fetchMissingScriptOptions(paths, callback) {
                     let toFetch = paths.filter(function(path) {
                         return !scriptOptionsCache.hasOwnProperty(path);
                     });
-
+        
                     if (!toFetch.length) {
                         callback();
                         return;
                     }
-
+        
                     let requests = toFetch.map(function(path) {
                         let match = allScripts.find(function(s) {
                             let relative = s.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '');
                             return relative === path || s.name === path;
                         });
-
+        
                         if (!match || match.type !== 'perl') {
                             scriptOptionsCache[path] = [];
                             return $.Deferred().resolve().promise();
                         }
-
+        
                         return $.ajax({
                             url: '/api/v1/contrib/crontab/scripts/details',
                             method: 'GET',
@@ -272,21 +258,21 @@
                             scriptOptionsCache[path] = [];
                         });
                     });
-
+        
                     $.when.apply($, requests).always(callback);
                 }
-
+        
                 function renderPolicyPanels() {
                     let selected = ($("#script_picker").val() || []).filter(isExactScript);
                     fetchMissingScriptOptions(selected, function() {
                         renderPolicyPanelsNow(selected);
                     });
                 }
-
+        
                 function renderPolicyPanelsNow(selected) {
                     let container = $("#script_policy_panels");
                     container.empty();
-
+        
                     selected.forEach(function(path) {
                         let serverEntry = serverPolicy[path] || {};
                         let state = libraryPolicyState[path] || emptyLibraryState();
@@ -297,7 +283,7 @@
                         let serverRequired = serverEntry.required_options || [];
                         let libraryRequired = state.required_options || [];
                         let scriptOptions = scriptOptionsCache[path] || [];
-
+        
                         let requiredHtml = '';
                         if (scriptOptions.length) {
                             requiredHtml = '<div class="form-group d-block mt-2"><label class="d-block">Required options:</label>';
@@ -313,7 +299,7 @@
                             });
                             requiredHtml += '</div>';
                         }
-
+        
                         let panel = $(
                             '<div class="card mb-2">' +
                                 '<div class="card-body py-2">' +
@@ -333,22 +319,22 @@
                                 '</div>' +
                             '</div>'
                         );
-
+        
                         container.append(panel);
                     });
-
+        
                     container.find('.policy-non-repeatable').on('change', function() {
                         let path = $(this).data('path');
                         libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
                         libraryPolicyState[path].non_repeatable = $(this).is(':checked');
                     });
-
+        
                     container.find('.policy-allowed-hours').on('input', function() {
                         let path = $(this).data('path');
                         libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
                         libraryPolicyState[path].allowed_hours = $(this).val();
                     });
-
+        
                     container.find('.policy-required-option').on('change', function() {
                         let path = $(this).data('path');
                         let optionName = $(this).data('option');
@@ -362,7 +348,7 @@
                         libraryPolicyState[path].required_options = list;
                     });
                 }
-
+        
                 // Load all available scripts (with bypass_filter=1 to see all scripts for configuration)
                 $.ajax({
                     url: '/api/v1/contrib/crontab/scripts?bypass_filter=1',
@@ -377,7 +363,7 @@
                         console.error('Failed to load scripts');
                     }
                 });
-
+        
                 function initializeScriptPicker() {
                     $("#script_picker").select2({
                         width: "75%",
@@ -397,22 +383,22 @@
                             if (!script.id) {
                                 return script.text;
                             }
-
+        
                             let $script = $("<div></div>");
                             let html = '<strong>' + escape_str(script.text) + '</strong>';
-
+        
                             if (script.type) {
                                 html += ' <span class="badge badge-secondary">' + script.type + '</span>';
                             }
-
+        
                             if (script.description) {
                                 html += '<br><small class="text-muted">' + escape_str(script.description) + '</small>';
                             }
-
+        
                             if (script.path) {
                                 html += '<br><small><code>' + escape_str(script.path) + '</code></small>';
                             }
-
+        
                             $script.html(html);
                             return $script;
                         },
@@ -424,7 +410,7 @@
                         },
                         placeholder: "Select scripts or type directory prefixes (e.g., batch/)"
                     });
-
+        
                     // Load existing library-tier selections and policy
                     let existingPolicy = { scripts: [] };
                     try {
@@ -432,27 +418,27 @@
                     } catch (e) {
                         console.error('Failed to parse existing script policy', e);
                     }
-
+        
                     (existingPolicy.scripts || []).forEach(function(entry) {
                         libraryPolicyState[entry.path] = {
                             non_repeatable: !!entry.non_repeatable,
                             allowed_hours: entry.allowed_hours || '',
                             required_options: entry.required_options || []
                         };
-
+        
                         let existingOption = allScripts.find(s =>
                             s.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '') === entry.path ||
                             s.name === entry.path
                         );
-
+        
                         let displayText = existingOption ? existingOption.name : entry.path;
                         let option = new Option(displayText, entry.path, true, true);
                         $("#script_picker").append(option);
                     });
                     $("#script_picker").trigger('change');
-
+        
                     renderPolicyPanels();
-
+        
                     $("#script_picker").on('change', function() {
                         let selected = $(this).val() || [];
                         Object.keys(libraryPolicyState).forEach(function(path) {
@@ -463,7 +449,7 @@
                         renderPolicyPanels();
                     });
                 }
-
+        
                 // Update hidden fields on form submit
                 $("form").on("submit", function() {
                     // Handle patron allowlist
@@ -473,7 +459,7 @@
                     } else {
                         $("#user_allowlist").val("");
                     }
-
+        
                     // Handle script policy
                     let selectedScripts = $("#script_picker").val() || [];
                     let scriptsPayload = selectedScripts.map(function(path) {
@@ -489,7 +475,7 @@
                     $("#script_policy").val(JSON.stringify({ scripts: scriptsPayload }));
                 });
             });
-        </script>
-    [% END %]
-
-[% INCLUDE 'intranet-bottom.inc' %]
+        });
+    });
+</script>
+[% END %]

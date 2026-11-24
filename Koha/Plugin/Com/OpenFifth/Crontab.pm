@@ -18,7 +18,7 @@ use Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script;
 
 our $VERSION         = '1.7.0';
-our $MINIMUM_VERSION = "22.11.00";
+our $MINIMUM_VERSION = "25.05.00";
 
 our $metadata = {
     name            => 'Crontab',
@@ -98,7 +98,13 @@ sub configure {
     my ( $self, $args ) = @_;
     my $cgi = $self->{'cgi'};
 
-    unless ( $cgi->param('save') ) {
+    # Only a POST carrying op=cud-save changes anything. Koha's CSRF protection
+    # covers POST requests (and requires the form's csrf_token); it does not stop
+    # a state-changing GET, so a save request that arrives any other way, e.g.
+    # a link with save=1 in the query string, just renders the form.
+    my $is_save = ( $cgi->request_method // '' ) eq 'POST' && ( scalar( $cgi->param('op') ) // '' ) eq 'cud-save';
+
+    unless ($is_save) {
         my $template = $self->get_template( { file => 'configure.tt' } );
 
         my $crontab      = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new( { plugin => $self } );
