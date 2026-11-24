@@ -17,6 +17,10 @@ The plugin provides a configuration page accessible via the "Configure" action i
 - **Logging**: Toggle whether job add/edit/delete/enable/disable actions are recorded to Koha's action log
 - **Backup Retention**: How many crontab backups to keep before older ones are pruned (default: 10)
 
+### Versions and restoring
+
+The **Versions** tab lists the crontab backups (one per state, newest first), shows what changed against the current crontab, and can restore one. The current crontab is backed up before a restore, so it can be undone. A restore is checked like adding or enabling the jobs in it: a version containing a plugin-managed job that could not be saved today (script no longer permitted by the policy, unsupported command syntax, missing required option, repeated non-repeatable script, job-level environment variable) is refused and the reasons are shown.
+
 Both allowlists can also be configured via the koha-conf.xml file (see below).
 
 **An empty script policy means no scripts can be scheduled.** Nothing is permitted until the policy lists scripts (on the Configure page, or in a server policy file; see below). On a fresh install the plugin seeds a short list of the routine scheduled jobs librarians most often want to control (`runreport.pl`, `longoverdue.pl`, `update_patrons_category.pl`, `process_message_queue.pl`, `holds/holds_reminder.pl`) from [`default-policy.yaml`](Koha/Plugin/Com/OpenFifth/Crontab/default-policy.yaml) inside the plugin. Scripts that can do a lot of damage with the wrong arguments (`cleanup_database.pl`, `gather_print_notices.pl`) are deliberately left out; add them yourself if you want them. The seed happens once, at install time: it can be freely edited from the Configure page afterwards, and upgrading never overwrites a policy you've already configured. If a server policy file is configured, nothing is seeded, because the server policy applies as written.

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Versions tab: browse, compare and restore earlier versions of the crontab.** Every change the plugin makes keeps the crontab as it was before and after as a backup; these are now listed as versions (newest first, with job counts), can be compared with the current crontab as a line diff, and can be restored. A restore replaces the whole crontab, so it is held to the same rules as adding or enabling a job: a version containing a plugin-managed job that could not be saved today (script no longer in the policy, unsupported shell syntax, missing required option, non-repeatable duplicate, a job-level environment variable that no longer exists) is refused, with the reasons shown. The current crontab is backed up first, so a restore can itself be undone. Restores are written to the action log when logging is enabled. New endpoints: `GET /backups`, `GET /backups/{name}`, `POST /backups/{name}/restore`.
+
+### Fixed
+
+- A failed change never actually rolled back: restoring the pre-modification backup ignored the backup's path and re-wrote the current file.
+- Two backups taken in the same second overwrote each other, losing the "before" state, and each change left two identical backups. Backup names are now unique and consecutive duplicates are shown as one version.
+- A job name or description containing `=` read back empty (Config::Crontab parses such a comment as a commented-out environment variable) and was lost the next time the job was saved. It also made a bogus environment variable appear on the job.
+- A commented-out `#KOHA_CRON_PATH=...` line was treated as a real setting.
+
 ### Changed
 
 - **The Configure page's per-script options are now one compact table.** Each selected script used to get its own card with a grid of checkboxes for every option, so the page grew quickly with the number of allowed scripts. It is now a scrolling table with a row per script (non-repeatable, allowed hours, required options). Scripts that declare their own options with `Koha::Script->describe_options` show the options they require as read-only badges and no option picker, since the script enforces them already; plain `GetOptions` scripts, which give no such signal, get a compact multi-select. Options set by the server administrator are marked, and directory entries get a single explanatory row.

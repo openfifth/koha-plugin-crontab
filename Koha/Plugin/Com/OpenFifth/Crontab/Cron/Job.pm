@@ -86,10 +86,17 @@ sub parse_job_metadata {
     my ( $self, $block ) = @_;
 
     my %metadata;
-    my @comments = $block->select( -type => 'comment' );
 
-    for my $comment (@comments) {
-        my $data = $comment->data();
+    # Config::Crontab reads a comment line containing "=" (for example
+    # "# @name: Nightly a=b report" or "# @description: --lost 30=1") as a
+    # commented-out environment assignment, not a comment. Its dump gives the
+    # line back (minus the space after the '#'), so the metadata is recovered
+    # from those too; without that a job name or description containing "="
+    # silently reads back empty and is lost the next time the job is saved.
+    my @comments = map { $_->data() } $block->select( -type => 'comment' );
+    push @comments, map { my $line = $_->dump(); chomp $line; $line } grep { !$_->active } $block->select( -type => 'env' );
+
+    for my $data (@comments) {
 
         # Parse structured metadata (@key: value format)
         if ( $data =~ /^\s*#\s*\@(\w+(?:-\w+)*):\s*(.+)\s*$/ ) {
@@ -291,18 +298,45 @@ sub create_job_block {
     return $block;
 }
 
+=head2 block_environment
+
+The environment variables a job block really sets, as a hashref of name =>
+value. Only active assignments count: a commented-out one (C<#NAME=value>) is
+not a variable, and Config::Crontab also reports a metadata comment that
+contains "=" as one (see C<parse_job_metadata>).
+
+    my $env = $job->block_environment($block);
+
+=cut
+
+sub block_environment {
+    my ( $self, $block ) = @_;
+
+    my %environment;
+    for my $env ( $block->select( -type => 'env' ) ) {
+        next unless $env->active;
+        $environment{ $env->name } = $env->value;
+    }
+
+    return \%environment;
+}
+
 =head2 get_plugin_managed_jobs
 
-Get all jobs managed by this plugin from the crontab
+Get all jobs managed by this plugin from the crontab, or from a given
+C<Config::Crontab> object (for example a backup to be restored)
+
+    my $jobs = $job->get_plugin_managed_jobs();
+    my $jobs = $job->get_plugin_managed_jobs($candidate_ct);
 
 Returns an arrayref of hashrefs containing job data
 
 =cut
 
 sub get_plugin_managed_jobs {
-    my ($self) = @_;
+    my ( $self, $ct ) = @_;
 
-    my $ct = $self->{crontab}->read();
+    $ct ||= $self->{crontab}->read();
     return [] unless $ct;
 
     my @jobs;
@@ -321,10 +355,7 @@ sub get_plugin_managed_jobs {
         my $event = $events[0];    # Take first event in block
 
         # Extract environment variables
-        my %environment;
-        for my $env ( $block->select( -type => 'env' ) ) {
-            $environment{ $env->name } = $env->value;
-        }
+        my %environment = %{ $self->block_environment($block) };
 
         my $job = {
             id          => $metadata->{'crontab-manager-id'},
@@ -355,9 +386,9 @@ Returns an arrayref of hashrefs with job data and a 'managed' flag
 =cut
 
 sub get_all_crontab_entries {
-    my ($self) = @_;
+    my ( $self, $ct ) = @_;
 
-    my $ct = $self->{crontab}->read();
+    $ct ||= $self->{crontab}->read();
     return [] unless $ct;
 
     my @entries;
@@ -523,10 +554,7 @@ sub update_job_block {
 
     # Get existing environment if not provided
     unless ( $job_data->{environment} ) {
-        my %env;
-        for my $env_var ( $block->select( -type => 'env' ) ) {
-            $env{ $env_var->name } = $env_var->value;
-        }
+        my %env = %{ $self->block_environment($block) };
         $job_data->{environment} = \%env if %env;
     }
 

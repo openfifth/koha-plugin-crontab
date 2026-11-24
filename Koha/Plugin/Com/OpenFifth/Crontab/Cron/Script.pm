@@ -110,6 +110,10 @@ sub get_available_scripts {
     my $cron_path;
     my @env_lines = $ct->select( -type => 'env' );
     for my $env (@env_lines) {
+
+        # A commented-out "#KOHA_CRON_PATH=..." is not a setting
+        next unless $env->active;
+
         if ( $env->name eq 'KOHA_CRON_PATH' ) {
             $cron_path = $env->value;
             last;
@@ -1122,6 +1126,52 @@ sub check_positional_args {
     }
 
     return { valid => 1 };
+}
+
+=head2 job_policy_error
+
+Everything that must hold for a job to run beyond its command being an
+approved script: the script's declared minimum bare arguments, and the
+policy's C<non_repeatable>, C<allowed_hours> and C<required_options>. Enabling
+a job and restoring a backup both ask this of each job they would activate, so
+the two cannot drift apart.
+
+    my $validation = $script->validate_command($command);
+    my $error = $script->job_policy_error( $validation, $command, $schedule, $job_id, $entries );
+
+C<$validation> is the result of C<validate_command> (which must have been
+valid), C<$job_id> is the job being checked so it isn't counted as a duplicate
+of itself, and C<$entries> is the list of all crontab entries to look for
+duplicates among (as C<Cron::Job-E<gt>get_all_crontab_entries> returns).
+
+Returns an error message, or undef if the job passes.
+
+=cut
+
+sub job_policy_error {
+    my ( $self, $validation, $command, $schedule, $job_id, $entries ) = @_;
+
+    my $check = $self->check_positional_args( $validation->{script}, $command );
+    return $check->{error} unless $check->{valid};
+
+    my $policy = $validation->{policy} or return;
+
+    if ( $policy->{non_repeatable} ) {
+        $check = $self->check_non_repeatable( $validation->{script}, $entries || [], $job_id );
+        return $check->{error} unless $check->{valid};
+    }
+
+    if ( $policy->{allowed_hours} ) {
+        $check = $self->check_allowed_hours( $policy->{allowed_hours}, $schedule );
+        return $check->{error} unless $check->{valid};
+    }
+
+    if ( $policy->{required_options} && @{ $policy->{required_options} } ) {
+        $check = $self->check_required_options( $policy->{required_options}, $command, $validation->{script}{path} );
+        return $check->{error} unless $check->{valid};
+    }
+
+    return;
 }
 
 =head2 _policy_with_script_declared_required

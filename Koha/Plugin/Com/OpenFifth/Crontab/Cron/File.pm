@@ -75,7 +75,8 @@ sub new {
         plugin       => $plugin,
         backup_dir   => $backup_dir,
         lock_timeout => $args->{lock_timeout} || 10,
-        lockfile     => '/tmp/koha-crontab-plugin.lock',
+        lockfile     => $args->{lockfile} || '/tmp/koha-crontab-plugin.lock',
+        cron_file    => $args->{cron_file},    # tests: operate on this file instead of the configured crontab
     };
 
     bless $self, $class;
@@ -152,8 +153,7 @@ sub safely_modify_crontab {
         }
 
         # 5. Write atomically
-        my $cron_file =
-          C4::Context->config('koha_plugin_crontab_cronfile') || undef;
+        my $cron_file = $self->_cron_file();
         $ct->file($cron_file) if $cron_file;
         $ct->write();
 
@@ -161,9 +161,10 @@ sub safely_modify_crontab {
         my $post_modification_backup = $self->backup_crontab();
 
         return {
-            success => 1,
-            backup  => $post_modification_backup,
-            message => "Crontab modified successfully"
+            success    => 1,
+            backup     => $post_modification_backup,
+            pre_backup => $pre_modification_backup,
+            message    => "Crontab modified successfully"
         };
     };
 
@@ -186,26 +187,38 @@ sub safely_modify_crontab {
 
 =head2 backup_crontab
 
-Create a backup of the current crontab file
+Create a backup (a version) of the current crontab
 
-Returns the backup filename on success, undef on failure
+Returns the backup filename on success, undef on failure.
+
+Nothing is written when the crontab is identical to the newest backup: that
+backup already is this version, and its name is returned. Every change makes
+a "before" and an "after" backup, and without this each is stored twice
+(the after of one change is the before of the next), halving how many
+distinct versions retention keeps. A backup is never overwritten: two
+different states in the same second get distinct names.
 
 =cut
 
 sub backup_crontab {
     my ($self) = @_;
 
-    my $now_string = strftime "%Y-%m-%d_%H-%M-%S", localtime;
-    my $filename =
-      File::Spec->catfile( $self->{backup_dir}, "crontab_backup_$now_string" );
-
     try {
-        my $ct = Config::Crontab->new();
-        my $cron_file =
-          C4::Context->config('koha_plugin_crontab_cronfile') || undef;
+        my $ct        = Config::Crontab->new();
+        my $cron_file = $self->_cron_file();
         $ct->file($cron_file) if $cron_file;
         $ct->read();
-        $ct->write($filename);
+        my $dump = $ct->dump();
+
+        my $latest = $self->_get_latest_backup();
+        if ( $latest && _same_text( _slurp($latest), $dump ) ) {
+            return $latest;
+        }
+
+        my $filename = $self->_new_backup_filename();
+        open my $fh, '>', $filename or die "Cannot write $filename: $!\n";
+        print {$fh} $dump;
+        close $fh or die "Cannot write $filename: $!\n";
 
         # Cleanup old backups
         $self->_cleanup_old_backups();
@@ -220,9 +233,11 @@ sub backup_crontab {
 
 =head2 restore_crontab
 
-Restore the most recent crontab backup
+Restore the most recent crontab backup, or the given backup file
 
-Returns 1 on success, 0 on failure
+Returns 1 on success, 0 on failure. This is the unvalidated rollback used by
+C<safely_modify_crontab> to undo a failed change with the file it just took;
+to restore a chosen version for a user, use C<restore_backup>.
 
 =cut
 
@@ -246,11 +261,17 @@ sub restore_crontab {
 
     try {
         my $ct = Config::Crontab->new();
-        $ct->read($backup_file);
+        $ct->mode('block');
 
-        my $cron_file =
-          C4::Context->config('koha_plugin_crontab_cronfile') || undef;
-        $ct->file($cron_file) if $cron_file;
+        # Config::Crontab::read takes -file => $path; a bare path is ignored
+        # and the live crontab is read instead, which would "restore" the
+        # current state and nothing else.
+        $ct->read( -file => $backup_file );
+        die "Could not read backup: " . $ct->error . "\n" if $ct->error;
+
+        # Reading set the object's file to the backup; write to the real
+        # crontab ('' means the user's crontab, via crontab(1)).
+        $ct->file( $self->_cron_file() || '' );
         $ct->write();
 
         return 1;
@@ -259,6 +280,95 @@ sub restore_crontab {
         warn "Failed to restore from backup $backup_file: $_";
         return 0;
     };
+}
+
+=head2 backup_path
+
+The full path of the backup called C<$name>, or undef if the name isn't a
+backup file name or no such backup exists. This is the only way a
+user-supplied name becomes a path: the name must match the backup naming
+scheme exactly, so it can't point anywhere else.
+
+=cut
+
+# \z, not $: a trailing newline must not slip through a name check
+my $BACKUP_NAME = qr/^crontab_backup_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})(?:_(\d+))?\z/;
+
+sub backup_path {
+    my ( $self, $name ) = @_;
+
+    return unless defined $name && !ref $name && $name =~ $BACKUP_NAME;
+
+    my $path = File::Spec->catfile( $self->{backup_dir}, $name );
+    return -f $path ? $path : undef;
+}
+
+=head2 restore_backup
+
+Restore the crontab to a chosen version, through the same lock, pre-change
+backup and rollback as any other change.
+
+    my $result = $crontab->restore_backup( $name, sub {
+        my ( $candidate, $current ) = @_;
+        return "reason" if ...;    # or undef to allow the restore
+    } );
+
+The optional validator is given the candidate crontab (the version to restore)
+and the current one, and returns an error message to refuse the restore. It
+runs before anything is touched, and again under the lock in case the crontab
+changed in between. The current crontab is saved as a version first, so a
+restore can itself be undone.
+
+Returns a hashref: C<success>, and either C<restored_from>, C<pre_backup> and
+C<backup>, or C<error> (and C<not_found> if no such backup).
+
+=cut
+
+sub restore_backup {
+    my ( $self, $name, $validator ) = @_;
+
+    my $path = $self->backup_path($name)
+      or return { success => 0, not_found => 1, error => "Backup not found" };
+
+    my $candidate = Config::Crontab->new();
+    $candidate->mode('block');
+    $candidate->read( -file => $path );
+    return { success => 0, error => "The backup could not be read: " . $candidate->error }
+      if $candidate->error;
+    return { success => 0, error => "The backup is not a valid crontab" }
+      unless $self->validate($candidate);
+
+    if ($validator) {
+        my $current = $self->read()
+          or return { success => 0, error => "The current crontab could not be read" };
+        if ( my $error = $validator->( $candidate, $current ) ) {
+            return { success => 0, error => $error };
+        }
+    }
+
+    my $result = $self->safely_modify_crontab(
+        sub {
+            my ($ct) = @_;
+
+            if ($validator) {
+                if ( my $error = $validator->( $candidate, $ct ) ) {
+                    die "$error\n";
+                }
+            }
+
+            $ct->blocks( [ $candidate->blocks ] );
+            return 1;
+        }
+    );
+
+    unless ( $result->{success} ) {
+        $result->{error} =~ s/^Modification failed: //;
+        $result->{error} =~ s/\s+\z//;
+        return $result;
+    }
+
+    $result->{restored_from} = $name;
+    return $result;
 }
 
 =head2 list_backups
@@ -273,13 +383,12 @@ sub list_backups {
     my ($self) = @_;
 
     opendir( my $dh, $self->{backup_dir} ) or return [];
-    my @backups = grep {
-        /^crontab_backup_/ && -f File::Spec->catfile( $self->{backup_dir}, $_ )
-    } readdir($dh);
+    my @backups = grep { $_ =~ $BACKUP_NAME && -f File::Spec->catfile( $self->{backup_dir}, $_ ) } readdir($dh);
     closedir($dh);
 
-    # Sort by date (newest first)
-    @backups = sort { $b cmp $a } @backups;
+    # Newest first: by timestamp, then by the suffix that tells apart backups
+    # taken in the same second ("..._2" is later than "...")
+    @backups = sort { _backup_sort_key($b) cmp _backup_sort_key($a) } @backups;
 
     my @result;
     for my $backup (@backups) {
@@ -288,6 +397,7 @@ sub list_backups {
         push @result,
           {
             filename  => $fullpath,
+            name      => $backup,
             timestamp => $mtime,
             display   => strftime( "%Y-%m-%d %H:%M:%S", localtime($mtime) ),
           };
@@ -309,8 +419,7 @@ sub read {
 
     try {
         my $ct = Config::Crontab->new();
-        my $cron_file =
-          C4::Context->config('koha_plugin_crontab_cronfile') || undef;
+        my $cron_file = $self->_cron_file();
         $ct->file($cron_file) if $cron_file;
         $ct->mode('block');
         $ct->read();
@@ -420,6 +529,59 @@ sub _release_lock {
 
     flock( $lock_fh, LOCK_UN );
     close $lock_fh;
+}
+
+sub _cron_file {
+    my ($self) = @_;
+
+    return $self->{cron_file} if defined $self->{cron_file};
+    return C4::Context->config('koha_plugin_crontab_cronfile') || undef;
+}
+
+sub _backup_sort_key {
+    my ($name) = @_;
+
+    my ( $when, $n ) = $name =~ $BACKUP_NAME;
+    return sprintf( '%s_%06d', $when // '', $n // 1 );
+}
+
+sub _new_backup_filename {
+    my ($self) = @_;
+
+    my $when = strftime( "%Y-%m-%d_%H-%M-%S", localtime );
+    my $base = File::Spec->catfile( $self->{backup_dir}, "crontab_backup_$when" );
+
+    # Backups taken in the same second get an increasing suffix. It has to
+    # increase past what exists, not fill the first gap: once retention has
+    # pruned the oldest of them its name is free again, and a new version
+    # reusing it would sort as the oldest and be pruned straight away.
+    my $highest = 0;
+    if ( opendir( my $dh, $self->{backup_dir} ) ) {
+        for my $existing ( readdir $dh ) {
+            next unless $existing =~ /^crontab_backup_\Q$when\E(?:_(\d+))?\z/;
+            my $n = defined $1 ? $1 : 1;
+            $highest = $n if $n > $highest;
+        }
+        closedir $dh;
+    }
+
+    return $highest ? $base . '_' . ( $highest + 1 ) : $base;
+}
+
+sub _slurp {
+    my ($file) = @_;
+
+    open my $fh, '<', $file or return '';
+    local $/;
+    return scalar <$fh> // '';
+}
+
+# Trailing whitespace is not a difference between versions
+sub _same_text {
+    my ( $x, $y ) = @_;
+
+    s/\s+\z// for ( $x, $y );
+    return $x eq $y;
 }
 
 sub _get_latest_backup {

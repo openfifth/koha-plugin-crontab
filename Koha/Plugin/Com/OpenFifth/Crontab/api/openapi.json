@@ -1020,5 +1020,186 @@
                 }
             }
         }
+    },
+    "/backups": {
+        "get": {
+            "x-mojo-to": "Com::OpenFifth::Crontab::REST::V1::Cron::Backups#list",
+            "operationId": "listCrontabBackups",
+            "tags": [
+                "cronjobs"
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "The crontab's versions, newest first",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "backups": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "timestamp": {
+                                            "type": "integer",
+                                            "description": "Seconds since the epoch"
+                                        },
+                                        "display": {
+                                            "type": "string"
+                                        },
+                                        "size": {
+                                            "type": "integer",
+                                            "description": "Bytes"
+                                        },
+                                        "jobs": {
+                                            "type": "integer",
+                                            "description": "Plugin-managed jobs in this version"
+                                        },
+                                        "enabled_jobs": {
+                                            "type": "integer"
+                                        },
+                                        "entries": {
+                                            "type": "integer",
+                                            "description": "All cron lines, including disabled ones"
+                                        },
+                                        "copies": {
+                                            "type": "integer",
+                                            "description": "How many identical backups this version stands for"
+                                        },
+                                        "current": {
+                                            "type": "boolean",
+                                            "description": "Identical to the crontab as it is now"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "401": {
+                    "description": "Authentication required"
+                },
+                "403": {
+                    "description": "Access forbidden"
+                },
+                "500": {
+                    "description": "Internal server error"
+                }
+            }
+        }
+    },
+    "/backups/{name}": {
+        "get": {
+            "x-mojo-to": "Com::OpenFifth::Crontab::REST::V1::Cron::Backups#get",
+            "operationId": "getCrontabBackup",
+            "tags": [
+                "cronjobs"
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "parameters": [
+                {
+                    "name": "name",
+                    "in": "path",
+                    "description": "A backup name (crontab_backup_YYYY-MM-DD_HH-MM-SS, optionally with a _N suffix), or 'current' for the crontab as it is now",
+                    "required": true,
+                    "type": "string",
+                    "pattern": "^(current|crontab_backup_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(_[0-9]+)?)$"
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "The text of the version",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "display": {
+                                "type": "string"
+                            },
+                            "content": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "404": {
+                    "description": "Backup not found"
+                },
+                "401": {
+                    "description": "Authentication required"
+                },
+                "403": {
+                    "description": "Access forbidden"
+                },
+                "500": {
+                    "description": "Internal server error"
+                }
+            }
+        }
+    },
+    "/backups/{name}/restore": {
+        "post": {
+            "x-mojo-to": "Com::OpenFifth::Crontab::REST::V1::Cron::Backups#restore",
+            "operationId": "restoreCrontabBackup",
+            "tags": [
+                "cronjobs"
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "parameters": [
+                {
+                    "name": "name",
+                    "in": "path",
+                    "description": "A backup name (crontab_backup_YYYY-MM-DD_HH-MM-SS, optionally with a _N suffix)",
+                    "required": true,
+                    "type": "string",
+                    "pattern": "^crontab_backup_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}(_[0-9]+)?$"
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "The crontab was restored",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "success": {
+                                "type": "boolean"
+                            },
+                            "restored_from": {
+                                "type": "string"
+                            },
+                            "message": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "400": {
+                    "description": "The version can't be restored: it contains a job that would not be accepted today"
+                },
+                "404": {
+                    "description": "Backup not found"
+                },
+                "401": {
+                    "description": "Authentication required"
+                },
+                "403": {
+                    "description": "Access forbidden"
+                },
+                "500": {
+                    "description": "Internal server error"
+                }
+            }
+        }
     }
 }

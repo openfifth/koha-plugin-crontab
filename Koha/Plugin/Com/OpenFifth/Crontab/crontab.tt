@@ -27,6 +27,17 @@
     border-radius: 0.25rem;
     font-size: 0.75rem;
 }
+#crontab_plugin_admin .diff-line {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8125rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    padding: 0 0.5rem;
+}
+#crontab_plugin_admin .diff-add { background-color: #e6ffed; }
+#crontab_plugin_admin .diff-del { background-color: #ffeef0; }
+#crontab_plugin_admin .diff-gap { color: #6c757d; font-style: italic; }
+#crontab_plugin_admin .diff-box { max-height: 28rem; overflow: auto; border: 1px solid #dee2e6; border-radius: 0.25rem; }
 .btn-xs {
     padding: 0.125rem 0.375rem;
     font-size: 0.75rem;
@@ -111,6 +122,11 @@
                     <i class="fa fa-server"></i> System Jobs
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="backups-tab" data-bs-toggle="tab" data-bs-target="#backups" type="button" role="tab">
+                    <i class="fa fa-history"></i> Versions
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content">
@@ -164,6 +180,36 @@
                         </thead>
                         <tbody id="system_jobs_tbody">
                             <!-- System jobs will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Versions (backups) Tab -->
+            <div class="tab-pane fade" id="backups" role="tabpanel">
+                <div class="page-section">
+                    <div class="alert alert-info">
+                        <i class="fa fa-info-circle"></i> Every change to the crontab saves a version of it. You can compare a version with the
+                        current crontab, download it, or <strong>restore</strong> it. Restoring replaces the whole crontab, system jobs
+                        included, and saves the current crontab as a new version first, so a restore can itself be undone.
+                    </div>
+                    <div id="backups-loading" class="text-center my-4" style="display: none;">
+                        <i class="fa fa-spinner fa-pulse fa-3x fa-fw text-muted"></i>
+                        <p class="text-muted mt-2">Loading versions...</p>
+                    </div>
+                    <table class="table table-striped" id="backups_table">
+                        <thead>
+                            <tr>
+                                <th>Saved</th>
+                                <th>Managed jobs</th>
+                                <th>Enabled</th>
+                                <th>Cron lines</th>
+                                <th>Size</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="backups_tbody">
+                            <!-- Versions will be loaded dynamically -->
                         </tbody>
                     </table>
                 </div>
@@ -346,6 +392,47 @@
             </div>
         </div>
     </div>
+
+    <!-- Version Compare / Restore Modal -->
+    <div class="modal fade" id="backupModal" tabindex="-1" role="dialog" aria-labelledby="backup-modal-label">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title" id="backup-modal-label">Version</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="backup-restore-error" class="alert alert-danger" style="display: none;"></div>
+                    <div id="backup-restore-confirm" class="alert alert-warning" style="display: none;">
+                        <strong>Restore this version?</strong>
+                        The whole crontab, system jobs included, will be replaced with this version. The current crontab is saved as a
+                        new version first, so you can undo this. A version containing a job that could not be saved today is refused.
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-danger" id="backup-restore-yes"><i class="fa fa-undo"></i> Yes, restore it</button>
+                            <button type="button" class="btn btn-sm btn-default" id="backup-restore-no">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <button type="button" class="btn btn-sm btn-primary" id="backup-show-diff" disabled>Changes if restored</button>
+                        <button type="button" class="btn btn-sm btn-default" id="backup-show-full">Full version</button>
+                    </div>
+                    <p class="text-muted small mb-2" id="backup-diff-help">
+                        What restoring would change: <span class="diff-line diff-del d-inline">&minus; removed from the crontab</span>
+                        <span class="diff-line diff-add d-inline">+ added to the crontab</span>
+                    </p>
+                    <div class="diff-box">
+                        <div id="backup-diff"></div>
+                        <pre id="backup-full" class="mb-0 p-2" style="display: none;"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" id="backup-download"><i class="fa fa-download"></i> Download</button>
+                    <button type="button" class="btn btn-warning" id="backup-restore"><i class="fa fa-undo"></i> Restore this version</button>
+                    <button type="button" class="btn btn-default" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 [%# The wrapper loads jQuery and Koha's scripts at the bottom of the page and
@@ -426,7 +513,12 @@
                     loadJobs();
                     loadAllCrontabEntries();
                     loadEnvironmentVariables();
+                    if ($('#backups-tab').hasClass('active')) {
+                        loadBackups();
+                    }
                 });
+
+                initBackups();
 
                 // Schedule presets
                 $('.schedule-preset').on('click', function(e) {
@@ -1024,6 +1116,257 @@
 
                 // Show message that download has been triggered
                 showMessage('Downloading latest backup...', 'success');
+            }
+
+            // ---- Versions (backups): list, compare with the current crontab, download, restore ----
+
+            let backupsTable;
+            let backupModalName = null;
+
+            function backupsApi(path) {
+                return '/api/v1/contrib/crontab/backups' + path;
+            }
+
+            function backupError(xhr, fallback) {
+                return (xhr && xhr.responseJSON && xhr.responseJSON.error) || (xhr && xhr.statusText) || fallback;
+            }
+
+            function formatBytes(bytes) {
+                return bytes < 1024 ? bytes + ' B' : (bytes / 1024).toFixed(1) + ' KiB';
+            }
+
+            function initBackups() {
+                backupsTable = $('#backups_table').DataTable({
+                    "paging": true,
+                    "lengthChange": true,
+                    "searching": true,
+                    "ordering": false, // already newest first
+                    "info": true,
+                    "autoWidth": false
+                });
+
+                // The list is loaded when its tab is shown, so it reflects changes made since
+                $('#backups-tab').on('shown.bs.tab', loadBackups);
+
+                $('#backups_table').on('click', '.view-backup', function() {
+                    openBackupModal($(this).data('name'), false);
+                });
+                $('#backups_table').on('click', '.restore-backup', function() {
+                    openBackupModal($(this).data('name'), true);
+                });
+                $('#backups_table').on('click', '.download-backup', function() {
+                    downloadBackup($(this).data('name'));
+                });
+
+                $('#backup-show-diff').on('click', function() { showBackupView('diff'); });
+                $('#backup-show-full').on('click', function() { showBackupView('full'); });
+                $('#backup-download').on('click', function() { downloadBackup(backupModalName); });
+                $('#backup-restore').on('click', function() { $('#backup-restore-confirm').show(); });
+                $('#backup-restore-no').on('click', function() { $('#backup-restore-confirm').hide(); });
+                $('#backup-restore-yes').on('click', restoreBackup);
+            }
+
+            function loadBackups() {
+                $('#backups-loading').show();
+                $('#backups_table').hide();
+
+                $.ajax({
+                    url: backupsApi(''),
+                    method: 'GET',
+                    success: function(data) {
+                        populateBackupsTable(data.backups || []);
+                    },
+                    error: function(xhr) {
+                        showMessage('Failed to load versions: ' + escapeHtml(backupError(xhr, 'unknown error')), 'danger');
+                        $('#backups-loading').hide();
+                        $('#backups_table').show();
+                    }
+                });
+            }
+
+            function populateBackupsTable(backups) {
+                backupsTable.clear();
+
+                if (backups.length === 0) {
+                    backupsTable.row.add([
+                        '<span class="text-muted">No versions saved yet</span>',
+                        '<span class="text-muted">-</span>', '<span class="text-muted">-</span>',
+                        '<span class="text-muted">-</span>', '<span class="text-muted">-</span>',
+                        '<span class="text-muted">-</span>'
+                    ]);
+                }
+
+                let currentShown = false;
+                backups.forEach(function(backup) {
+                    let name = escapeHtml(backup.name);
+
+                    let saved = '<span title="' + name + '">' + escapeHtml(backup.display) + '</span>';
+                    if (backup.current) {
+                        // The newest is the crontab as it is; an older version with identical
+                        // content (for example after restoring it) is marked, not duplicated.
+                        saved += currentShown
+                            ? ' <span class="badge bg-info text-dark ms-1">Same as current</span>'
+                            : ' <span class="badge bg-success ms-1">Current</span>';
+                        currentShown = true;
+                    }
+                    if (backup.copies > 1) {
+                        saved += ' <small class="text-muted">(' + backup.copies + ' identical copies)</small>';
+                    }
+
+                    let actions =
+                        '<button type="button" class="btn btn-xs btn-info view-backup" data-name="' + name + '"><i class="fa fa-eye"></i> Compare</button> ' +
+                        '<button type="button" class="btn btn-xs btn-default download-backup" data-name="' + name + '" title="Download"><i class="fa fa-download"></i></button> ' +
+                        (backup.current ? '' : '<button type="button" class="btn btn-xs btn-warning restore-backup" data-name="' + name + '"><i class="fa fa-undo"></i> Restore</button>');
+
+                    backupsTable.row.add([saved, backup.jobs, backup.enabled_jobs, backup.entries, formatBytes(backup.size), actions]);
+                });
+
+                backupsTable.draw();
+                $('#backups-loading').hide();
+                $('#backups_table').show();
+            }
+
+            // A line diff between two texts: LCS over lines. Crontabs are small; refuse
+            // anything big enough to make the table too large to be worth building.
+            function lineDiff(oldLines, newLines) {
+                let n = oldLines.length, m = newLines.length;
+                if (n * m > 4000000) {
+                    return null;
+                }
+
+                let table = [];
+                for (let i = 0; i <= n; i++) {
+                    table.push(new Uint16Array(m + 1));
+                }
+                for (let i = n - 1; i >= 0; i--) {
+                    for (let j = m - 1; j >= 0; j--) {
+                        table[i][j] = oldLines[i] === newLines[j]
+                            ? table[i + 1][j + 1] + 1
+                            : Math.max(table[i + 1][j], table[i][j + 1]);
+                    }
+                }
+
+                let result = [], i = 0, j = 0;
+                while (i < n && j < m) {
+                    if (oldLines[i] === newLines[j]) {
+                        result.push({ kind: ' ', text: oldLines[i] }); i++; j++;
+                    } else if (table[i + 1][j] >= table[i][j + 1]) {
+                        result.push({ kind: '-', text: oldLines[i] }); i++;
+                    } else {
+                        result.push({ kind: '+', text: newLines[j] }); j++;
+                    }
+                }
+                while (i < n) { result.push({ kind: '-', text: oldLines[i++] }); }
+                while (j < m) { result.push({ kind: '+', text: newLines[j++] }); }
+
+                return result;
+            }
+
+            // What restoring `versionText` would do to `currentText`, with a little context
+            // around each change and the unchanged stretches between collapsed.
+            function renderBackupDiff(currentText, versionText) {
+                let container = $('<div></div>');
+                let diff = lineDiff(currentText.replace(/\s+$/, '').split('\n'), versionText.replace(/\s+$/, '').split('\n'));
+
+                if (!diff) {
+                    return container.append($('<p class="text-muted p-2 mb-0"></p>').text('Too large to compare here. Use "Full version", or download it.'));
+                }
+                if (!diff.some(function(line) { return line.kind !== ' '; })) {
+                    return container.append($('<p class="text-muted p-2 mb-0"></p>').text('Identical to the current crontab.'));
+                }
+
+                let context = 2, keep = new Array(diff.length).fill(false);
+                diff.forEach(function(line, index) {
+                    if (line.kind !== ' ') {
+                        for (let k = Math.max(0, index - context); k <= Math.min(diff.length - 1, index + context); k++) { keep[k] = true; }
+                    }
+                });
+
+                let skipped = 0;
+                function flushSkipped() {
+                    if (skipped) {
+                        container.append($('<div class="diff-line diff-gap"></div>').text('\u2026 ' + skipped + ' unchanged line' + (skipped === 1 ? '' : 's') + ' \u2026'));
+                        skipped = 0;
+                    }
+                }
+
+                diff.forEach(function(line, index) {
+                    if (!keep[index]) { skipped++; return; }
+                    flushSkipped();
+                    let classes = line.kind === '+' ? 'diff-add' : line.kind === '-' ? 'diff-del' : '';
+                    container.append($('<div class="diff-line ' + classes + '"></div>').text((line.kind === ' ' ? '  ' : line.kind + ' ') + line.text));
+                });
+                flushSkipped();
+
+                return container;
+            }
+
+            function showBackupView(which) {
+                let diff = which === 'diff';
+                $('#backup-diff').toggle(diff);
+                $('#backup-diff-help').toggle(diff);
+                $('#backup-full').toggle(!diff);
+                $('#backup-show-diff').toggleClass('btn-primary', diff).toggleClass('btn-default', !diff);
+                $('#backup-show-full').toggleClass('btn-primary', !diff).toggleClass('btn-default', diff);
+            }
+
+            function openBackupModal(name, confirmRestore) {
+                $.when(
+                    $.ajax({ url: backupsApi('/' + encodeURIComponent(name)), method: 'GET' }),
+                    $.ajax({ url: backupsApi('/current'), method: 'GET' })
+                ).done(function(versionResponse, currentResponse) {
+                    let version = versionResponse[0], current = currentResponse[0];
+                    let identical = version.content.replace(/\s+$/, '') === current.content.replace(/\s+$/, '');
+
+                    backupModalName = name;
+                    $('#backup-modal-label').text('Version saved ' + version.display);
+                    $('#backup-diff').empty().append(renderBackupDiff(current.content, version.content));
+                    $('#backup-full').text(version.content);
+                    $('#backup-restore-error').hide().empty();
+                    $('#backup-restore-confirm').toggle(!!confirmRestore && !identical);
+                    $('#backup-restore').prop('disabled', identical).attr('title', identical ? 'This is already the current crontab' : '');
+                    $('#backup-show-diff').prop('disabled', false);
+                    showBackupView('diff');
+                    $('#backupModal').modal('show');
+                }).fail(function(xhr) {
+                    showMessage('Failed to load the version: ' + escapeHtml(backupError(xhr, 'unknown error')), 'danger');
+                });
+            }
+
+            function downloadBackup(name) {
+                $.ajax({ url: backupsApi('/' + encodeURIComponent(name)), method: 'GET' }).done(function(version) {
+                    let link = document.createElement('a');
+                    link.href = URL.createObjectURL(new Blob([version.content], { type: 'text/plain' }));
+                    link.download = name + '.txt';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                }).fail(function(xhr) {
+                    showMessage('Failed to download the version: ' + escapeHtml(backupError(xhr, 'unknown error')), 'danger');
+                });
+            }
+
+            function restoreBackup() {
+                let name = backupModalName;
+                $('#backup-restore-yes').prop('disabled', true);
+
+                $.ajax({
+                    url: backupsApi('/' + encodeURIComponent(name) + '/restore'),
+                    method: 'POST'
+                }).done(function() {
+                    $('#backupModal').modal('hide');
+                    showMessage('Crontab restored from the selected version', 'success');
+                    loadJobs();
+                    loadAllCrontabEntries();
+                    loadEnvironmentVariables();
+                    loadBackups();
+                }).fail(function(xhr) {
+                    $('#backup-restore-confirm').hide();
+                    $('#backup-restore-error').text(backupError(xhr, 'The version could not be restored')).show();
+                }).always(function() {
+                    $('#backup-restore-yes').prop('disabled', false);
+                });
             }
 
             function showMessage(message, type) {

@@ -608,10 +608,7 @@ sub update {
                 # Get updated job data for response
                 my $metadata = $job_model->parse_job_metadata($block);
                 my @events   = $block->select( -type => 'event' );
-                my %env;
-                for my $env_var ( $block->select( -type => 'env' ) ) {
-                    $env{ $env_var->name } = $env_var->value;
-                }
+                my %env = %{ $job_model->block_environment($block) };
 
                 $updated_job = {
                     id          => $metadata->{'crontab-manager-id'},
@@ -783,24 +780,10 @@ sub enable {
                 );
             }
 
-            my $err = _script_args_error( $script_model, $validation, $existing_job->{command} );
-            if ( !$err && ( my $policy = $validation->{policy} ) ) {
-                my $check;
-                if ( $policy->{non_repeatable} ) {
-                    $check = $script_model->check_non_repeatable( $validation->{script}, $job_model->get_all_crontab_entries(), $job_id );
-                    $err = $check->{error} unless $check->{valid};
-                }
-                if ( !$err && $policy->{allowed_hours} ) {
-                    $check = $script_model->check_allowed_hours( $policy->{allowed_hours}, $existing_job->{schedule} );
-                    $err = $check->{error} unless $check->{valid};
-                }
-                if ( !$err && $policy->{required_options} && @{ $policy->{required_options} } ) {
-                    $check = $script_model->check_required_options(
-                        $policy->{required_options}, $existing_job->{command}, $validation->{script}{path}
-                    );
-                    $err = $check->{error} unless $check->{valid};
-                }
-            }
+            my $err = $script_model->job_policy_error(
+                $validation, $existing_job->{command}, $existing_job->{schedule},
+                $job_id, $job_model->get_all_crontab_entries()
+            );
 
             if ($err) {
                 return $c->render( status => 400, openapi => { error => "Cannot enable job: $err" } );
