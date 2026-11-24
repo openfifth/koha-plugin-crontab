@@ -27,6 +27,7 @@ use Koha::Plugin::Com::OpenFifth::Crontab;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script;
 use Try::Tiny;
+use Mojo::JSON;
 
 =head1 NAME
 
@@ -129,8 +130,15 @@ sub get {
         # Script-declared required-ness is a floor policy can only add to,
         # never remove, matching the union posture required_options already
         # uses between the server/library policy tiers.
+        # declared_required is the script's own declaration alone, so the
+        # Configure page can tell what the script demands from what an
+        # administrator added.
         my @options_with_req = map {
-            { %$_, required => ( $_->{required} || $required_lookup{ $_->{name} } ) ? 1 : 0 }
+            {
+                %$_,
+                required          => ( $_->{required} || $required_lookup{ $_->{name} } ) ? 1 : 0,
+                declared_required => $_->{required} ? 1 : 0,
+            }
         } @{ $parsed->{options} };
 
         return $c->render(
@@ -143,6 +151,7 @@ sub get {
                 usage_text      => $doc->{usage_text} || '',
                 options         => \@options_with_req,
                 positional_args => $parsed->{positional_args},
+                uses_describe_options => $parsed->{uses_describe_options} ? Mojo::JSON->true : Mojo::JSON->false,
                 policy          => $policy,
             }
         );

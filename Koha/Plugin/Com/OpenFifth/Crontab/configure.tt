@@ -13,6 +13,15 @@
    checkboxes to a sliver. Restore Bootstrap's sizing for ours specifically
    (margin is intentionally left alone: Bootstrap's `.form-check .form-check-input`
    already wins the cascade for margin-left, and overriding it here would break it). */
+#crontab_plugin_configure .script-policy-scroll {
+    max-height: 26rem;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+#crontab_plugin_configure .script-policy-scroll thead th {
+    z-index: 1;
+}
 #crontab_plugin_configure .form-check-input[type="checkbox"] {
     width: 1em;
     height: 1em;
@@ -240,132 +249,192 @@
                     return { non_repeatable: false, allowed_hours: '', required_options: [] };
                 }
         
+                // path -> what the Configure page needs to know about a script's options:
+                //   describe: the script declares its options with Koha::Script->describe_options,
+                //   declared: names of options the script itself requires,
+                //   options:  options that take a value (what an administrator could additionally require)
                 let scriptOptionsCache = {};
-        
+
+                function emptyOptionInfo() {
+                    return { describe: false, declared: [], options: [] };
+                }
+
                 function fetchMissingScriptOptions(paths, callback) {
                     let toFetch = paths.filter(function(path) {
                         return !scriptOptionsCache.hasOwnProperty(path);
                     });
-        
+
                     if (!toFetch.length) {
                         callback();
                         return;
                     }
-        
+
                     let requests = toFetch.map(function(path) {
                         let match = allScripts.find(function(s) {
                             let relative = s.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '');
                             return relative === path || s.name === path;
                         });
-        
+
                         if (!match || match.type !== 'perl') {
-                            scriptOptionsCache[path] = [];
+                            scriptOptionsCache[path] = emptyOptionInfo();
                             return $.Deferred().resolve().promise();
                         }
-        
+
                         return $.ajax({
                             url: '/api/v1/contrib/crontab/scripts/details',
                             method: 'GET',
                             data: { name: match.name, bypass_filter: 1 }
                         }).done(function(data) {
-                            scriptOptionsCache[path] = (data.options || []).filter(function(o) {
-                                return o.type !== 'boolean' && o.type !== 'incremental';
-                            });
+                            let all = data.options || [];
+                            scriptOptionsCache[path] = {
+                                describe: !!data.uses_describe_options,
+                                declared: all.filter(function(o) { return o.declared_required; }).map(function(o) { return o.name; }),
+                                options: all.filter(function(o) {
+                                    return o.type !== 'boolean' && o.type !== 'incremental';
+                                })
+                            };
                         }).fail(function() {
-                            scriptOptionsCache[path] = [];
+                            scriptOptionsCache[path] = emptyOptionInfo();
                         });
                     });
-        
+
                     $.when.apply($, requests).always(callback);
                 }
-        
+
                 function renderPolicyPanels() {
-                    let selected = ($("#script_picker").val() || []).filter(isExactScript);
-                    fetchMissingScriptOptions(selected, function() {
+                    let selected = $("#script_picker").val() || [];
+                    fetchMissingScriptOptions(selected.filter(isExactScript), function() {
                         renderPolicyPanelsNow(selected);
                     });
                 }
-        
+
+                function optionBadge(classes, name, title) {
+                    return '<span class="badge ' + classes + ' me-1" title="' + escape_str(title) + '">--' + escape_str(name) + '</span>';
+                }
+
+                // One compact table instead of a card per script: a row per selected script
+                // with its constraints in columns, so many scripts stay scannable.
                 function renderPolicyPanelsNow(selected) {
                     let container = $("#script_policy_panels");
                     container.empty();
-        
+
+                    if (!selected.length) {
+                        return;
+                    }
+
+                    let tbody = $('<tbody></tbody>');
+
                     selected.forEach(function(path) {
+                        if (!isExactScript(path)) {
+                            // A directory: per-script constraints can't be set on it
+                            tbody.append(
+                                '<tr><td><code>' + escape_str(path) + '</code></td>' +
+                                '<td colspan="3" class="text-muted">Every script in this directory. Select individual scripts to set constraints on them.</td></tr>'
+                            );
+                            return;
+                        }
+
                         let serverEntry = serverPolicy[path] || {};
                         let state = libraryPolicyState[path] || emptyLibraryState();
+                        let info = scriptOptionsCache[path] || emptyOptionInfo();
+
                         let locked = !!serverEntry.non_repeatable;
                         let nonRepeatable = locked || state.non_repeatable;
                         let hoursLocked = !!serverEntry.allowed_hours;
                         let allowedHours = hoursLocked ? serverEntry.allowed_hours : state.allowed_hours;
-                        let serverRequired = serverEntry.required_options || [];
+                        let serverRequired = (serverEntry.required_options || []).filter(function(n) { return info.declared.indexOf(n) === -1; });
                         let libraryRequired = state.required_options || [];
-                        let scriptOptions = scriptOptionsCache[path] || [];
-        
+
+                        // Required options the script declares itself are shown, not editable: the
+                        // script enforces them whatever the policy says.
                         let requiredHtml = '';
-                        if (scriptOptions.length) {
-                            requiredHtml = '<div class="form-group d-block mt-2"><label class="d-block">Required options:</label>';
-                            scriptOptions.forEach(function(option) {
-                                let isServerRequired = serverRequired.indexOf(option.name) !== -1;
-                                let checked = isServerRequired || libraryRequired.indexOf(option.name) !== -1;
-                                requiredHtml +=
-                                    '<div class="form-check form-check-inline">' +
-                                        '<input class="form-check-input policy-required-option" type="checkbox" data-path="' + escape_str(path) + '" data-option="' + escape_str(option.name) + '"' +
-                                            (checked ? ' checked' : '') + (isServerRequired ? ' disabled' : '') + '>' +
-                                        '<label class="form-check-label">--' + escape_str(option.name) + (isServerRequired ? ' (set by server administrator)' : '') + '</label>' +
-                                    '</div>';
+                        info.declared.forEach(function(name) {
+                            requiredHtml += optionBadge('text-bg-secondary', name, 'Required by the script itself');
+                        });
+                        serverRequired.forEach(function(name) {
+                            requiredHtml += optionBadge('text-bg-info', name, 'Set by the server administrator');
+                        });
+
+                        // Plain GetOptions scripts give no signal about what matters, so an
+                        // administrator can choose. A script that declares its own options doesn't
+                        // need that, unless an older policy already added some (so they can be removed).
+                        let candidates = info.options.filter(function(o) {
+                            return info.declared.indexOf(o.name) === -1 && serverRequired.indexOf(o.name) === -1;
+                        });
+                        let showPicker = candidates.length && ( !info.describe || libraryRequired.length );
+                        if (showPicker) {
+                            requiredHtml += '<select multiple class="form-select form-select-sm policy-required-select mt-1" data-path="' + escape_str(path) + '">';
+                            candidates.forEach(function(o) {
+                                requiredHtml += '<option value="' + escape_str(o.name) + '"' + (libraryRequired.indexOf(o.name) !== -1 ? ' selected' : '') + '>--' + escape_str(o.name) + '</option>';
                             });
-                            requiredHtml += '</div>';
+                            requiredHtml += '</select>';
                         }
-        
-                        let panel = $(
-                            '<div class="card mb-2">' +
-                                '<div class="card-body py-2">' +
-                                    '<strong>' + escape_str(path) + '</strong><br>' +
-                                    '<div class="form-check form-check-inline">' +
-                                        '<input class="form-check-input policy-non-repeatable" type="checkbox" data-path="' + escape_str(path) + '"' +
-                                            (nonRepeatable ? ' checked' : '') + (locked ? ' disabled' : '') + '>' +
-                                        '<label class="form-check-label">Non-repeatable' + (locked ? ' (set by server administrator)' : '') + '</label>' +
-                                    '</div>' +
-                                    '<div class="form-group d-inline-block ms-3">' +
-                                        '<label class="me-1">Allowed hours:</label>' +
-                                        '<input type="text" class="form-control form-control-sm d-inline-block policy-allowed-hours" style="width:150px" data-path="' + escape_str(path) + '" placeholder="e.g. 1-5" value="' + escape_str(allowedHours) + '"' +
-                                            (hoursLocked ? ' disabled' : '') + '>' +
-                                        (hoursLocked ? '<small class="text-muted ms-1">(set by server administrator)</small>' : '') +
-                                    '</div>' +
-                                    requiredHtml +
-                                '</div>' +
-                            '</div>'
+                        if (!requiredHtml) {
+                            requiredHtml = '<span class="text-muted">' + (info.describe ? 'none declared' : '&mdash;') + '</span>';
+                        }
+
+                        tbody.append(
+                            '<tr>' +
+                                '<td><code>' + escape_str(path) + '</code></td>' +
+                                '<td class="text-center">' +
+                                    '<input class="form-check-input policy-non-repeatable" type="checkbox" data-path="' + escape_str(path) + '"' +
+                                        (nonRepeatable ? ' checked' : '') + (locked ? ' disabled' : '') +
+                                        ' aria-label="Non-repeatable: ' + escape_str(path) + '"' +
+                                        (locked ? ' title="Set by the server administrator"' : '') + '>' +
+                                '</td>' +
+                                '<td>' +
+                                    '<input type="text" class="form-control form-control-sm policy-allowed-hours" data-path="' + escape_str(path) + '" placeholder="e.g. 1-5" value="' + escape_str(allowedHours) + '"' +
+                                        ' aria-label="Allowed hours: ' + escape_str(path) + '"' +
+                                        (hoursLocked ? ' disabled title="Set by the server administrator"' : '') + '>' +
+                                '</td>' +
+                                '<td>' + requiredHtml + '</td>' +
+                            '</tr>'
                         );
-        
-                        container.append(panel);
                     });
-        
+
+                    let table = $(
+                        '<table class="table table-sm table-striped align-middle mb-0 w-100">' +
+                            '<thead class="table-light sticky-top"><tr>' +
+                                '<th>Script</th><th class="text-center">Non-repeatable</th><th style="width: 9rem">Allowed hours</th><th>Required options</th>' +
+                            '</tr></thead>' +
+                        '</table>'
+                    );
+                    table.append(tbody);
+
+                    container.append($('<div class="script-policy-scroll"></div>').append(table));
+                    container.append(
+                        '<div class="form-text mt-1">' +
+                            '<span class="badge text-bg-secondary">--option</span> is required by the script itself; ' +
+                            '<span class="badge text-bg-info">--option</span> is set by your server administrator. ' +
+                            'Greyed-out controls are set by the server and cannot be changed here.' +
+                        '</div>'
+                    );
+
+                    container.find('.policy-required-select').select2({
+                        width: '100%',
+                        closeOnSelect: false,
+                        placeholder: 'Also require\u2026'
+                    });
+
                     container.find('.policy-non-repeatable').on('change', function() {
                         let path = $(this).data('path');
                         libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
                         libraryPolicyState[path].non_repeatable = $(this).is(':checked');
                     });
-        
+
                     container.find('.policy-allowed-hours').on('input', function() {
                         let path = $(this).data('path');
                         libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
                         libraryPolicyState[path].allowed_hours = $(this).val();
                     });
-        
-                    container.find('.policy-required-option').on('change', function() {
+
+                    container.find('.policy-required-select').on('change', function() {
                         let path = $(this).data('path');
-                        let optionName = $(this).data('option');
                         libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
-                        let list = libraryPolicyState[path].required_options || [];
-                        if ($(this).is(':checked')) {
-                            if (list.indexOf(optionName) === -1) list.push(optionName);
-                        } else {
-                            list = list.filter(function(n) { return n !== optionName; });
-                        }
-                        libraryPolicyState[path].required_options = list;
+                        libraryPolicyState[path].required_options = $(this).val() || [];
                     });
                 }
-        
+
                 // Load all available scripts (with bypass_filter=1 to see all scripts for configuration)
                 $.ajax({
                     url: '/api/v1/contrib/crontab/scripts?bypass_filter=1',

@@ -929,6 +929,10 @@
                                             "type": "boolean",
                                             "description": "Whether this option is required by script policy (required_options)"
                                         },
+                                        "declared_required": {
+                                            "type": "boolean",
+                                            "description": "Whether the script itself declares this option required (Koha::Script->describe_options); always false for plain GetOptions scripts"
+                                        },
                                         "negatable": {
                                             "type": "boolean",
                                             "description": "Whether the option supports --no-name form"
@@ -948,6 +952,10 @@
                                         }
                                     }
                                 }
+                            },
+                            "uses_describe_options": {
+                                "type": "boolean",
+                                "description": "Whether the script declares its options through Koha::Script->describe_options, so its required options and positional arguments are authoritative"
                             },
                             "positional_args": {
                                 "type": "array",

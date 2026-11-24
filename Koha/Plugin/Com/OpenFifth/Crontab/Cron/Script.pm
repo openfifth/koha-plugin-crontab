@@ -272,6 +272,9 @@ Returns hashref with:
   options => arrayref of option hashrefs (name, short_name, type,
              negatable, incremental, repeatable, dest_type)
   positional_args => arrayref of detected positional argument patterns
+  uses_describe_options => 1 if the script declares its options through
+             Koha::Script->describe_options (so its C<required> flags and
+             positional C<args> are authoritative), 0 for plain GetOptions
 
 For backwards compatibility, when called in list context on code that
 previously expected an arrayref, the options arrayref is returned.
@@ -281,15 +284,16 @@ previously expected an arrayref, the options arrayref is returned.
 sub parse_script_options {
     my ( $self, $script_path ) = @_;
 
-    return { options => [], positional_args => [] } unless -f $script_path;
+    return { options => [], positional_args => [], uses_describe_options => 0 } unless -f $script_path;
 
-    open my $fh, '<', $script_path or return { options => [], positional_args => [] };
+    open my $fh, '<', $script_path or return { options => [], positional_args => [], uses_describe_options => 0 };
     my @lines = <$fh>;
     close $fh;
 
     my $content = join( '', @lines );
 
     my ( @options, @positional_args );
+    my $uses_describe_options = 0;
 
     # Only executable code counts: a mention of describe_options in a
     # comment or in POD must not divert a plain-GetOptions script onto the
@@ -297,6 +301,7 @@ sub parse_script_options {
     my $code = $self->_strip_pod_and_end($content);
 
     if ( $code =~ $DESCRIBE_OPTIONS_CALL ) {
+        $uses_describe_options = 1;
 
         # Scripts converted to Koha core's Koha::Script->describe_options
         # convention (bug 43546) can declare required-ness reliably --
@@ -324,8 +329,9 @@ sub parse_script_options {
     }
 
     return {
-        options         => \@options,
-        positional_args => \@positional_args,
+        options               => \@options,
+        positional_args       => \@positional_args,
+        uses_describe_options => $uses_describe_options,
     };
 }
 
