@@ -20,7 +20,7 @@
     "url": "git+https://github.com/openfifth/koha-plugin-crontab.git"
   },
   "author": "Open Fifth",
-  "license": "GPL-3.0",
+  "license": "AGPL-3.0-or-later",
   "bugs": {
     "url": "https://github.com/openfifth/koha-plugin-crontab/issues"
   },

@@ -192,3 +192,9 @@ The latest releases of this plugin can be obtained from the [release page](https
 ## Development
 
 Setup, testing and the release process are documented in [DEVELOPMENT.md](DEVELOPMENT.md).
+
+## License
+
+This plugin is licensed under the [GNU Affero General Public License, version 3 or any later version](LICENSE) (`AGPL-3.0-or-later`). Each source file carries an `SPDX-License-Identifier` header stating this.
+
+The bundled copy of [Config::Crontab](https://metacpan.org/pod/Config::Crontab) in `Koha/Plugin/Com/OpenFifth/Crontab/lib` is by Scott Wiersdorf and is distributed under the same terms as Perl itself; it keeps its own licence notice.

@@ -1,5 +1,5 @@
 use Modern::Perl;
-use Test::More tests => 3;
+use Test::More tests => 5;
 use Test::Exception;
 use JSON::MaybeXS qw(decode_json);
 use Path::Tiny qw(path);
@@ -25,3 +25,7 @@ lives_ok { $plugin = $plugin_module->new() } 'Plugin can be instantiated';
 
 # Test version
 is($plugin->{metadata}->{version}, $expected_version, 'Plugin version matches package.json');
+
+# Test licence metadata
+is($plugin->{metadata}->{license}, 'AGPL-3.0-or-later', 'Plugin declares its licence in metadata');
+like($plugin->{metadata}->{description}, qr/AGPL-3\.0-or-later/, 'Licence is visible in the description shown in Koha');

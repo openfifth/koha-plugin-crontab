@@ -1,3 +1,20 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Copyright 2023-2026 Open Fifth and contributors
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+# for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use utf8;
 
 package Koha::Plugin::Com::OpenFifth::Crontab;
@@ -23,13 +40,16 @@ our $MINIMUM_VERSION = "25.05.00";
 our $metadata = {
     name            => 'Crontab',
     author          => 'Martin Renvoize',
-    description     => 'Script scheduling',
+    # Koha's plugin management screen only renders the fields above and below,
+    # not 'license', so the licence is also stated in the description.
+    description     => 'Script scheduling. Licensed under AGPL-3.0-or-later.',
     date_authored   => '2023-04-25',
     date_updated    => '2026-11-24',
     minimum_version => $MINIMUM_VERSION,
     maximum_version => undef,
     version         => $VERSION,
-    license         => 'GPL-3.0',
+    license         => 'AGPL-3.0-or-later',
+    license_url     => 'https://www.gnu.org/licenses/agpl-3.0.html',
 };
 
 sub new {

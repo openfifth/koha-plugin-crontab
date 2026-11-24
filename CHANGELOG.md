@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Relicensed from GPL-3.0 to **AGPL-3.0-or-later**, matching the other Open Fifth plugins and the plugin template. Added the licence text (`LICENSE`), an `SPDX-License-Identifier` header on every first-party source file, and the licence in the plugin metadata. The bundled `Config::Crontab` keeps its own (Perl) licence.
 - The main Crontab admin page now uses core's `wrapper-staff-tool-plugin.inc` like the Configure page: standard page title, breadcrumbs, sidebar and messages, instead of a hand-built page skeleton.
 - The page's inline script and style carry Koha's Content-Security-Policy nonce, and DataTables is loaded after jQuery, so the page keeps working if an administrator sets `csp_mode` to `enabled`.
 - Requests from the page to the REST API now send Koha's CSRF token (`CSRF-TOKEN` header) on POST, PUT and DELETE, as core's own fetch client does.
