@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **With a server policy file, the Configure page's script picker only offers what the server permits.** It used to list every script under `KOHA_CRON_PATH` and let administrators choose (or type) ones the server would then ignore. Now only the scripts the server file permits, and its directory entries, can be selected; free typing is off; and a saved selection the server no longer permits is flagged as ignored.
+- **Library policy entries inside a server directory entry now work.** The tier merge only accepted a library path identical to a server path, so a server policy of `batch/` silently discarded a library selection of `batch/nightly.pl`. A library entry is now covered by an identical server entry or by a server directory that contains it, and the covering server entry's `non_repeatable`, `allowed_hours` and `required_options` apply to it.
+- Tests no longer depend on a server policy file configured in the instance's `koha-conf.xml`, and `install()`'s decision not to seed a library policy when a server file exists is now covered.
 - `runreport.pl` is back in the default script policy seeded on a fresh install: it is the script librarians most often want to control. It can email or SFTP any saved report's output, so the README's note on what the script policy does and does not limit still applies. Existing installations keep the policy they already have (the seed only happens once).
 
 ## [1.7.2] - 2026-11-24

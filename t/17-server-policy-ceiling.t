@@ -41,6 +41,7 @@ sub model {
     return $m;
 }
 sub names { join ',', map { $_->{name} } @{ $_[0]->get_available_scripts } }
+sub names_bypass { join ',', map { $_->{name} } @{ $_[0]->get_available_scripts( { bypass_filter => 1 } ) } }
 
 my $server = "scripts:\n  - path: approved.pl\n    non_repeatable: true\n    allowed_hours: '1-5'\n    required_options: [x]\n";
 
@@ -138,5 +139,36 @@ is( names( model( "scripts:\n  - path: batch/\n", undef ) ), 'nightly.pl', 'poli
 is( names( model( "scripts:\n  - path: appro\n", undef ) ),  '',           'policy "appro" no longer offers approved.pl' );
 ok( !model( "scripts:\n  - path: appro\n", undef )->validate_command('$KOHA_CRON_PATH/approved.pl')->{valid}, 'validate_command refuses a script only a string prefix names' );
 ok(  model( "scripts:\n  - path: approved.pl\n", undef )->validate_command('$KOHA_CRON_PATH/approved.pl')->{valid}, 'validate_command accepts a script named exactly' );
+
+
+# --- a server directory entry lets the library choose individual scripts under it ---
+my $dir_srv = "scripts:\n  - path: batch/\n    non_repeatable: true\n    allowed_hours: '1-5'\n";
+is( names( model( "scripts:\n  - path: batch/nightly.pl\n", $dir_srv ) ), 'nightly.pl', 'server directory entry: the library can select a script inside it' );
+my ($sel) = @{ model( "scripts:\n  - path: batch/nightly.pl\n", $dir_srv )->get_available_scripts };
+is( $sel->{policy}{non_repeatable}, 1,     'the directory entry\'s non_repeatable applies to the selected script' );
+is( $sel->{policy}{allowed_hours},  '1,2,3,4,5', 'the directory entry\'s allowed_hours applies to the selected script (as the expanded list)' );
+is( names( model( "scripts:\n  - path: nightly.pl\n", $dir_srv ) ), '', 'a bare file name is not covered by a server directory entry (it could be anywhere)' );
+is( names( model( "scripts:\n  - path: approved.pl\n", $dir_srv ) ), '', 'a script outside the server directory is not covered' );
+is( names( model( "scripts:\n  - path: batch/\n", "scripts:\n  - path: batch/nightly.pl\n" ) ), '', 'a library directory is broader than a server script, so not covered' );
+
+# --- _server_entry_covering ----------------------------------------------------------------
+my $cs = model( undef, undef );
+my @entries = ( { path => 'batch/' }, { path => 'batch/sub/' }, { path => 'runreport.pl' }, { path => 'tool.pl' } );
+is( $cs->_server_entry_covering( 'runreport.pl', \@entries )->{path},        'runreport.pl', 'covering: exact match' );
+is( $cs->_server_entry_covering( 'batch/nightly.pl', \@entries )->{path},    'batch/',       'covering: a directory entry covers a script inside it' );
+is( $cs->_server_entry_covering( 'batch/sub/x.pl', \@entries )->{path},      'batch/sub/',   'covering: the most specific directory wins' );
+is( $cs->_server_entry_covering( 'batch/sub/', \@entries )->{path},          'batch/sub/',   'covering: exact directory' );
+is( $cs->_server_entry_covering( 'batch/other/', \@entries )->{path},        'batch/',       'covering: a narrower directory is covered' );
+is( $cs->_server_entry_covering( 'other/tool.pl', \@entries )->{path},       'tool.pl',      'covering: a server file name covers that script in any directory' );
+is( $cs->_server_entry_covering( 'cleanup_database.pl', \@entries ),         undef,          'covering: nothing covers an unlisted script' );
+is( $cs->_server_entry_covering( 'batch_evil.pl', \@entries ),               undef,          'covering: not a string prefix' );
+
+# --- bypass_filter (the Configure page's candidates) ignores the library tier but not the server tier ---
+my $all = 'approved.pl,batch_evil.pl,dangerous.pl,nightly.pl,other.pl';
+is( names_bypass( model( undef, undef ) ),                                         $all,            'bypass: no policy anywhere: every script is a candidate' );
+is( names_bypass( model( "scripts:\n  - path: approved.pl\n", undef ) ),           $all,            'bypass: library policy only: every script is still a candidate' );
+is( names_bypass( model( undef, "scripts:\n  - path: approved.pl\n" ) ),           'approved.pl',   'bypass: with a server policy only its scripts are candidates' );
+is( names_bypass( model( "scripts:\n  - path: dangerous.pl\n", "scripts:\n  - path: approved.pl\n" ) ), 'approved.pl', 'bypass: the library policy does not widen the server ceiling' );
+is( names_bypass( model( undef, "scripts:\n  - path: approved.pl\n  - path: batch/\n" ) ), 'approved.pl,nightly.pl', 'bypass: server directory entries contribute the scripts under them' );
 
 done_testing();

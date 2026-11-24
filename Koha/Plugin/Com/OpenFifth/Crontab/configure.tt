@@ -83,6 +83,10 @@
                     <br/><strong>Note:</strong> You can also type directory prefixes (e.g., <code>batch/</code>) to allow all scripts in that directory.
                     <br/><strong>Note:</strong> Exact scripts (not prefixes) can additionally be marked non-repeatable or restricted to specific hours below the picker.
                 </div>
+                <div id="script_policy_restricted_note" class="alert alert-info mt-2" style="display: none;">
+                    Your server administrator limits which scripts can be offered here. Only the scripts and directories
+                    their policy file permits can be selected; anything outside it would be ignored.
+                </div>
                 <div id="script_policy_panels"></div>
             </li>
         </ol>
@@ -212,6 +216,19 @@
                     console.error('Failed to parse server policy', e);
                 }
         
+                // With a server policy file the server is a ceiling: only what it permits
+                // can be offered, and free typing of directory prefixes is not allowed.
+                let restricted = Object.keys(serverPolicy).length > 0;
+
+                function coveredByServer(path) {
+                    if (!restricted) return true;
+                    let name = path.replace(/\/+$/, '').replace(/^.*\//, '');
+                    return Object.keys(serverPolicy).some(function(entry) {
+                        let dir = entry.replace(/\/+$/, '');
+                        return entry === path || entry === name || (dir && path.indexOf(dir + '/') === 0);
+                    });
+                }
+
                 function isExactScript(path) {
                     return allScripts.some(function(candidate) {
                         let relative = candidate.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, '');
@@ -365,20 +382,40 @@
                 });
         
                 function initializeScriptPicker() {
+                    let candidates = allScripts.map(function(script) {
+                        return {
+                            id: script.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, ''),
+                            text: script.name,
+                            description: script.description,
+                            path: script.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, ''),
+                            type: script.type
+                        };
+                    });
+
+                    if (restricted) {
+                        $("#script_policy_restricted_note").show();
+
+                        // The server's directory entries are choices too: selecting one allows
+                        // everything under it (individual scripts above can narrow further).
+                        Object.keys(serverPolicy).forEach(function(path) {
+                            if (!isExactScript(path)) {
+                                candidates.push({
+                                    id: path,
+                                    text: path,
+                                    description: 'Every script under this directory',
+                                    path: path,
+                                    type: 'directory'
+                                });
+                            }
+                        });
+                    }
+
                     $("#script_picker").select2({
                         width: "75%",
                         multiple: true,
                         allowClear: true,
-                        tags: true, // Allow custom entries like "batch/" for directory prefixes
-                        data: allScripts.map(function(script) {
-                            return {
-                                id: script.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, ''),
-                                text: script.name,
-                                description: script.description,
-                                path: script.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, ''),
-                                type: script.type
-                            };
-                        }),
+                        tags: !restricted, // Free entries like "batch/" only when no server policy limits the choices
+                        data: candidates,
                         templateResult: function(script) {
                             if (!script.id) {
                                 return script.text;
@@ -408,7 +445,7 @@
                             }
                             return escape_str(script.id);
                         },
-                        placeholder: "Select scripts or type directory prefixes (e.g., batch/)"
+                        placeholder: restricted ? "Select from the scripts your server administrator permits" : "Select scripts or type directory prefixes (e.g., batch/)"
                     });
         
                     // Load existing library-tier selections and policy
@@ -432,6 +469,9 @@
                         );
         
                         let displayText = existingOption ? existingOption.name : entry.path;
+                        if (!coveredByServer(entry.path)) {
+                            displayText += ' (not permitted by the server policy: ignored)';
+                        }
                         let option = new Option(displayText, entry.path, true, true);
                         $("#script_picker").append(option);
                     });

@@ -76,6 +76,8 @@ How it combines with the library policy edited on the Configure page:
 - **Unconfigured or empty library policy:** the server file applies as written. On install the plugin does not seed its own default list when a server file is configured, so there is nothing to narrow it.
 - **Constraints:** `non_repeatable` and `required_options` set by the server file always apply, and the library policy can only add to them. `allowed_hours` can only be narrowed, to the hours both allow.
 - **Directories:** an entry naming a directory (for example `batch/`) offers every script under it. Entries name scripts or directories, never a bare string prefix.
+- **Selecting individual scripts under a directory:** if the server file lists `batch/`, the library policy can select `batch/nightly.pl` (or a narrower directory such as `batch/sub/`) from it. Any `non_repeatable`, `allowed_hours` and `required_options` on the server's directory entry apply to the scripts chosen under it.
+- **The Configure page only offers what the server permits:** with a server policy file, the script picker lists just the scripts (and directories) it permits, and free typing is turned off. A selection the server no longer permits is flagged as ignored.
 - **No restart needed for edits:** the file is read on every request, so changing it (an Ansible run, for instance) takes effect immediately. Only changing the `koha-conf.xml` setting needs a restart.
 
 An Ansible sketch:

@@ -9,6 +9,13 @@ unshift @INC, "$plugin_dir/Koha/Plugin/Com/OpenFifth/Crontab/lib";
 require Config::Crontab;
 use_ok('Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script');
 
+# Hermetic: ignore any server policy file the test instance's koha-conf.xml
+# happens to configure, so these tests only see the policy they set up.
+{
+    no warnings 'redefine';
+    *Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script::_server_policy_text = sub { return };
+}
+
 # Minimal stand-in for Cron::File: get_available_scripts() only ever calls
 # ->read() on the crontab instance it is given.
 package FakePlugin;

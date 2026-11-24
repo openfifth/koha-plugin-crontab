@@ -88,7 +88,14 @@ Get list of available scripts from KOHA_CRON_PATH
     my $scripts = $script->get_available_scripts();
     my $scripts = $script->get_available_scripts({ bypass_filter => 1 });
 
-Returns arrayref of hashrefs with script metadata
+Returns arrayref of hashrefs with script metadata.
+
+By default only scripts the effective script policy permits are returned
+(and an empty policy permits none). C<bypass_filter> is for the Configure
+page, which needs the candidates an administrator can choose from: it
+ignores the I<library> policy but never the I<server> policy. With a server
+policy file configured, only the scripts it permits are candidates; with
+none, every script under C<KOHA_CRON_PATH> is.
 
 =cut
 
@@ -151,15 +158,20 @@ sub get_available_scripts {
 
     my $effective_policy = $self->_effective_policy();
 
-    # Filter by the script policy (unless bypassed). Always: an empty policy
-    # means no scripts may be scheduled, never "no policy, so everything".
-    unless ( $options->{bypass_filter} ) {
+    # Filter by the script policy. Always: an empty policy means no scripts
+    # may be scheduled, never "no policy, so everything". For the Configure
+    # page (bypass_filter) the library policy is ignored, since that is what
+    # is being chosen, but the server policy is a ceiling that is not: only
+    # what it permits can be offered.
+    my $filter_entries = $options->{bypass_filter} ? $self->get_server_policy() : $effective_policy;
+
+    if ( !$options->{bypass_filter} || @$filter_entries ) {
         my @filtered_scripts;
         for my $script (@scripts) {
             my $rel_path = $script->{relative_path};
             $rel_path =~ s/^\$KOHA_CRON_PATH\/?//;
 
-            for my $entry (@$effective_policy) {
+            for my $entry (@$filter_entries) {
                 if ( $self->_policy_path_matches( $entry->{path}, $rel_path, $script->{name} ) ) {
                     push @filtered_scripts, $script;
                     last;
@@ -1335,11 +1347,41 @@ sub _intersect_allowed_hours {
     return join( ',', sort { $a <=> $b } keys %intersection );
 }
 
+=head2 _server_entry_covering
+
+The server policy entry that permits a library policy path, or undef if the
+server policy does not cover it. A library path is covered by a server entry
+that is the same path, or by a server directory entry that contains it (so a
+server policy of C<batch/> lets the library select C<batch/nightly.pl>, or the
+narrower directory C<batch/sub/>, but not the other way round). When several
+server entries cover it the exact match wins, then the most specific (longest)
+directory, so the tightest constraints apply.
+
+    my $server = $script->_server_entry_covering( 'batch/nightly.pl', $server_entries );
+
+=cut
+
+sub _server_entry_covering {
+    my ( $self, $library_path, $server_entries ) = @_;
+
+    my ($exact) = grep { $_->{path} eq $library_path } @$server_entries;
+    return $exact if $exact;
+
+    ( my $name = $library_path ) =~ s{/+$}{};
+    $name =~ s{^.*/}{};
+
+    my @covering = sort { length( $b->{path} ) <=> length( $a->{path} ) }
+        grep { $self->_policy_path_matches( $_->{path}, $library_path, $name ) } @$server_entries;
+
+    return $covering[0];
+}
+
 =head2 _merge_policy_tiers
 
 Merge server-tier (ceiling) and library-tier policy entries into a single
 effective list. If the server tier is empty, the library tier applies
-unmodified. Otherwise, only paths present in BOTH tiers survive, and each
+unmodified. Otherwise, only library paths the server tier covers (see
+C<_server_entry_covering>) survive, and each
 survivor's non_repeatable is the OR of both tiers (library can only turn it
 on) and allowed_hours is the intersection of both tiers (library can only
 narrow it).
@@ -1364,11 +1406,9 @@ sub _merge_policy_tiers {
     # ceiling into a free-for-all.
     return $server_entries unless @$library_entries;
 
-    my %server_by_path = map { $_->{path} => $_ } @$server_entries;
-
     my @effective;
     for my $library (@$library_entries) {
-        my $server = $server_by_path{ $library->{path} };
+        my $server = $self->_server_entry_covering( $library->{path}, $server_entries );
         next unless $server;    # ceiling excludes this path entirely
 
         push @effective,
