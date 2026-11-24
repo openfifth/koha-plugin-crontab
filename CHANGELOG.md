@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.8] - 2026-11-24
+
 ### Security
 
 - **Script allowlist bypass via shell syntax in the command.** `validate_command` only compared the first word of a command with the approved script list, so `approved.pl; anything`, `approved.pl $(anything)`, a pipe, `&&`, backticks, or a newline (which starts a second crontab line) were all accepted and then run with the Koha instance's privileges. Commands are now tokenized (`Cron::Script::parse_command`) and only plain words, quoting, simple `$NAME` references and file redirections (`>/dev/null 2>&1`) are accepted.
