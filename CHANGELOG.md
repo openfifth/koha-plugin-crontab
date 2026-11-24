@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-11-24
+
 ### Security
 
 - **The Configure page could be changed by a cross-site request.** Settings were saved whenever `save=1` appeared in the request, whatever the HTTP method, and the form submitted with GET and no CSRF token. Koha's CSRF protection covers POST requests only, so a link or redirect opened by an administrator could change the user allowlist, the script policy, logging and backup retention (including replacing the script policy with the attacker's choice) with no token and no interaction beyond the page load. Confirmed against 1.7.0: a bare `GET` with `save=1` changed the saved settings. The form now submits by POST with a CSRF token and `op=cud-save`, and the server only saves a POST carrying `op=cud-save`; any other request just renders the form. Installations should upgrade.
