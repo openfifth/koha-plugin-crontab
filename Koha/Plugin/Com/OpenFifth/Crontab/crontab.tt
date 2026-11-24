@@ -1,11 +1,11 @@
 [% USE Koha %]
 [% USE raw %]
+[% USE Asset %]
 [% PROCESS 'i18n.inc' %]
-[% SET footerjs = 1 %]
-[% INCLUDE 'doc-head-open.inc' %]
-<title>Crontab: Administer &rsaquo; Plugins &rsaquo; Administration &rsaquo; Koha</title>
-[% INCLUDE 'doc-head-close.inc' %]
-<style>
+[% SET method = 'admin' %]
+[% SET plugin_title = t("Crontab") %]
+[% WRAPPER 'wrapper-staff-tool-plugin.inc' %]
+<style nonce="[% Koha.CSPNonce | $raw %]">
 .job-enabled {
     color: #28a745;
 }
@@ -42,165 +42,133 @@
     height: 1em;
 }
 </style>
-</head>
 
-<body id="crontab_plugin_admin" class="plugin">
-    [% WRAPPER 'header.inc' %]
-        [% INCLUDE 'prefs-admin-search.inc' %]
-    [% END %]
+<div id="crontab_plugin_admin">
+        <div id="message"></div>
 
-    [% WRAPPER 'sub-header.inc' %]
-        [% WRAPPER breadcrumbs %]
-            [% WRAPPER breadcrumb_item %]
-                <a href="/cgi-bin/koha/admin/admin-home.pl">Administration</a>
-            [% END %]
-            [% WRAPPER breadcrumb_item %]
-                <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
-            [% END %]
-            [% WRAPPER breadcrumb_item bc_active= 1 %]
-                <span>Crontab: Administer</span>
-            [% END %]
-        [% END #/ WRAPPER breadcrumbs %]
-    [% END #/ WRAPPER sub-header.inc %]
+        <h1>Crontab: Administer</h1>
 
-    <div class="main container-fluid">
-        <div class="row">
-            <div class="col-md-10 order-md-2 order-sm-1">
-                <main>
-                    <div id="message"></div>
-
-                    <h1>Crontab: Administer</h1>
-
-                    <div id="toolbar" class="btn-toolbar">
-                        <button type="button" data-bs-toggle="modal" data-bs-target="#jobModal" class="btn btn-primary" id="newjob">
-                            <i class="fa fa-plus"></i> New Job
-                        </button>
-                        <button type="button" id="backup_now" class="btn btn-default">
-                            <i class="fa fa-download"></i> Download Backup
-                        </button>
-                        <button type="button" id="refresh_jobs" class="btn btn-default">
-                            <i class="fa fa-refresh"></i> Refresh
-                        </button>
-                    </div>
-
-                    [% IF no_scripts_permitted %]
-                    <div class="alert alert-warning">
-                        <strong>No scripts can be scheduled yet.</strong>
-                        An administrator needs to choose which scripts are permitted under
-                        <em>Configure &rsaquo; Script Policy</em>, or set a server policy file.
-                        Until then new jobs cannot be added, and existing jobs cannot be enabled or have their command changed.
-                    </div>
-                    [% END %]
-
-                    <!-- Global Environment Variables Section -->
-                    <div class="page-section">
-                        <div class="card">
-                            <div class="card-header" id="env-heading">
-                                <h5 class="mb-0">
-                                    <button class="btn btn-link collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#env-collapse" aria-expanded="false" aria-controls="env-collapse">
-                                        <i class="fa fa-list"></i> Global Environment Variables
-                                        <small class="text-muted">(click to expand)</small>
-                                    </button>
-                                </h5>
-                            </div>
-                            <div id="env-collapse" class="collapse" aria-labelledby="env-heading">
-                                <div class="card-body">
-                                    <p class="text-muted">Global environment variables defined at the crontab level. These are available to all cron jobs.</p>
-                                    <table class="table table-sm table-striped" id="env_vars_table">
-                                        <thead>
-                                            <tr>
-                                                <th>Variable</th>
-                                                <th>Value</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="env_vars_tbody">
-                                            <!-- Environment variables will be loaded dynamically -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tabs for different views -->
-                    <ul class="nav nav-tabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="managed-tab" data-bs-toggle="tab" data-bs-target="#managed-jobs" type="button" role="tab">
-                                <i class="fa fa-cog"></i> Managed Jobs
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system-jobs" type="button" role="tab">
-                                <i class="fa fa-server"></i> System Jobs
-                            </button>
-                        </li>
-                    </ul>
-
-                    <div class="tab-content">
-                        <!-- Managed Jobs Tab -->
-                        <div class="tab-pane fade show active" id="managed-jobs" role="tabpanel">
-                            <div class="page-section">
-                                <p class="text-muted">Jobs managed by this plugin. You can create, edit, enable/disable, and delete these jobs.</p>
-                                <div id="jobs-loading" class="text-center my-4" style="display: none;">
-                                    <i class="fa fa-spinner fa-pulse fa-3x fa-fw text-muted"></i>
-                                    <p class="text-muted mt-2">Loading managed jobs...</p>
-                                </div>
-                                <table class="table table-striped" id="jobs_table">
-                                    <thead>
-                                        <tr>
-                                            <th>Status</th>
-                                            <th>Schedule</th>
-                                            <th>Command</th>
-                                            <th>Description</th>
-                                            <th>Environment</th>
-                                            <th>Updated</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="jobs_tbody">
-                                        <!-- Jobs will be loaded dynamically -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- System Jobs Tab -->
-                        <div class="tab-pane fade" id="system-jobs" role="tabpanel">
-                            <div class="page-section">
-                                <div class="alert alert-info">
-                                    <i class="fa fa-info-circle"></i> These jobs are managed outside this plugin (e.g., by Ansible, manually, or other tools).
-                                    They are shown for reference to avoid scheduling conflicts. Jobs using an approved script can be <strong>migrated</strong> into plugin management.
-                                </div>
-                                <div id="system-jobs-loading" class="text-center my-4" style="display: none;">
-                                    <i class="fa fa-spinner fa-pulse fa-3x fa-fw text-muted"></i>
-                                    <p class="text-muted mt-2">Loading system jobs...</p>
-                                </div>
-                                <table class="table table-striped" id="system_jobs_table">
-                                    <thead>
-                                        <tr>
-                                            <th>Status</th>
-                                            <th>Schedule</th>
-                                            <th>Command</th>
-                                            <th>Comments</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="system_jobs_tbody">
-                                        <!-- System jobs will be loaded dynamically -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            </div> <!-- /.col-md-10.order-md-2 -->
-            <div class="col-md-2 order-sm-2 order-md-1">
-                <aside>
-                    [% INCLUDE 'admin-menu.inc' %]
-                </aside>
-            </div> <!-- /.col-md-2.order-md-1 -->
+        <div id="toolbar" class="btn-toolbar">
+            <button type="button" data-bs-toggle="modal" data-bs-target="#jobModal" class="btn btn-primary" id="newjob">
+                <i class="fa fa-plus"></i> New Job
+            </button>
+            <button type="button" id="backup_now" class="btn btn-default">
+                <i class="fa fa-download"></i> Download Backup
+            </button>
+            <button type="button" id="refresh_jobs" class="btn btn-default">
+                <i class="fa fa-refresh"></i> Refresh
+            </button>
         </div>
-    </div>
+
+        [% IF no_scripts_permitted %]
+        <div class="alert alert-warning">
+            <strong>No scripts can be scheduled yet.</strong>
+            An administrator needs to choose which scripts are permitted under
+            <em>Configure &rsaquo; Script Policy</em>, or set a server policy file.
+            Until then new jobs cannot be added, and existing jobs cannot be enabled or have their command changed.
+        </div>
+        [% END %]
+
+        <!-- Global Environment Variables Section -->
+        <div class="page-section">
+            <div class="card">
+                <div class="card-header" id="env-heading">
+                    <h5 class="mb-0">
+                        <button class="btn btn-link collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#env-collapse" aria-expanded="false" aria-controls="env-collapse">
+                            <i class="fa fa-list"></i> Global Environment Variables
+                            <small class="text-muted">(click to expand)</small>
+                        </button>
+                    </h5>
+                </div>
+                <div id="env-collapse" class="collapse" aria-labelledby="env-heading">
+                    <div class="card-body">
+                        <p class="text-muted">Global environment variables defined at the crontab level. These are available to all cron jobs.</p>
+                        <table class="table table-sm table-striped" id="env_vars_table">
+                            <thead>
+                                <tr>
+                                    <th>Variable</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody id="env_vars_tbody">
+                                <!-- Environment variables will be loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs for different views -->
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="managed-tab" data-bs-toggle="tab" data-bs-target="#managed-jobs" type="button" role="tab">
+                    <i class="fa fa-cog"></i> Managed Jobs
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system-jobs" type="button" role="tab">
+                    <i class="fa fa-server"></i> System Jobs
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- Managed Jobs Tab -->
+            <div class="tab-pane fade show active" id="managed-jobs" role="tabpanel">
+                <div class="page-section">
+                    <p class="text-muted">Jobs managed by this plugin. You can create, edit, enable/disable, and delete these jobs.</p>
+                    <div id="jobs-loading" class="text-center my-4" style="display: none;">
+                        <i class="fa fa-spinner fa-pulse fa-3x fa-fw text-muted"></i>
+                        <p class="text-muted mt-2">Loading managed jobs...</p>
+                    </div>
+                    <table class="table table-striped" id="jobs_table">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Schedule</th>
+                                <th>Command</th>
+                                <th>Description</th>
+                                <th>Environment</th>
+                                <th>Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jobs_tbody">
+                            <!-- Jobs will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- System Jobs Tab -->
+            <div class="tab-pane fade" id="system-jobs" role="tabpanel">
+                <div class="page-section">
+                    <div class="alert alert-info">
+                        <i class="fa fa-info-circle"></i> These jobs are managed outside this plugin (e.g., by Ansible, manually, or other tools).
+                        They are shown for reference to avoid scheduling conflicts. Jobs using an approved script can be <strong>migrated</strong> into plugin management.
+                    </div>
+                    <div id="system-jobs-loading" class="text-center my-4" style="display: none;">
+                        <i class="fa fa-spinner fa-pulse fa-3x fa-fw text-muted"></i>
+                        <p class="text-muted mt-2">Loading system jobs...</p>
+                    </div>
+                    <table class="table table-striped" id="system_jobs_table">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Schedule</th>
+                                <th>Command</th>
+                                <th>Comments</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="system_jobs_tbody">
+                            <!-- System jobs will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
     <!-- Add/Edit Job Modal -->
     <div class="modal fade" id="jobModal" tabindex="-1" role="dialog" aria-labelledby="job-modal-label">
@@ -219,7 +187,7 @@
                                     <input type="text" class="form-control" id="job-name" required placeholder="e.g., Daily Database Backup">
                                 </div>
                             </div>
-        
+    
                             <div class="col-md-6">
                                 <div class="form-group mb-3">
                                     <label for="job-enabled" class="form-label">Status</label>
@@ -378,1404 +346,1390 @@
             </div>
         </div>
     </div>
+</div>
 
-[% MACRO jsinclude BLOCK %]
-    [% INCLUDE 'datatables.inc' %]
-    <script>
-        $(document).ready(function() {
-            $('#navmenulist a[href$="/cgi-bin/koha/plugins/plugins-home.pl"]').addClass("current");
+[%# The wrapper loads jQuery and Koha's scripts at the bottom of the page and
+    replaces the page-level jsinclude, so this script waits for the DOM, loads
+    DataTables after jQuery, and then runs. #%]
+[% SET datatables_src = Asset.js("lib/datatables/datatables.min.js").match('src="([^"]+)"').0 %]
+[% SET datatables_init_src = Asset.js("js/datatables.js").match('src="([^"]+)"').0 %]
+<script nonce="[% Koha.CSPNonce | $raw %]">
+    document.addEventListener("DOMContentLoaded", function () {
+        function loadScript(src) {
+            return new Promise(function (resolve, reject) {
+                let script = document.createElement("script");
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = function () { reject(new Error("Failed to load " + src)); };
+                document.head.appendChild(script);
+            });
+        }
+
+        loadScript("[% datatables_src | $raw %]").then(function () {
+            return loadScript("[% datatables_init_src | $raw %]");
+        }).then(function () {
+        // Send Koha's CSRF token with unsafe requests to the REST API (the same
+        // header core's own fetch client sends). Cookie-authenticated unsafe
+        // requests are checked against it by newer Koha.
+        const csrfToken = $('meta[name="csrf-token"]').attr('content');
+        $.ajaxPrefilter(function (options, originalOptions, jqXHR) {
+            let method = (options.type || options.method || 'GET').toUpperCase();
+            if (csrfToken && method !== 'GET' && method !== 'HEAD' && options.url && options.url.indexOf('/api/v1/') === 0) {
+                jqXHR.setRequestHeader('CSRF-TOKEN', csrfToken);
+            }
         });
-    </script>
-    <script>
-        let jobsTable;
-        let systemJobsTable;
 
-        $(document).ready(function() {
-            // Initialize DataTables
-            jobsTable = $('#jobs_table').DataTable({
-                "paging": true,
-                "lengthChange": true,
-                "searching": true,
-                "ordering": true,
-                "info": true,
-                "autoWidth": false,
-                "columnDefs": [
-                    { "orderable": false, "targets": -1 } // Disable sorting on Actions column
-                ]
-            });
+            let jobsTable;
+            let systemJobsTable;
 
-            systemJobsTable = $('#system_jobs_table').DataTable({
-                "paging": true,
-                "lengthChange": true,
-                "searching": true,
-                "ordering": true,
-                "info": true,
-                "autoWidth": false,
-                "columnDefs": [
-                    { "orderable": false, "targets": -1 } // Disable sorting on Actions column
-                ]
-            });
+            $(document).ready(function() {
+                // Initialize DataTables
+                jobsTable = $('#jobs_table').DataTable({
+                    "paging": true,
+                    "lengthChange": true,
+                    "searching": true,
+                    "ordering": true,
+                    "info": true,
+                    "autoWidth": false,
+                    "columnDefs": [
+                        { "orderable": false, "targets": -1 } // Disable sorting on Actions column
+                    ]
+                });
 
-            // Load all data on page load
-            loadJobs();
-            loadAllCrontabEntries();
-            loadEnvironmentVariables();
+                systemJobsTable = $('#system_jobs_table').DataTable({
+                    "paging": true,
+                    "lengthChange": true,
+                    "searching": true,
+                    "ordering": true,
+                    "info": true,
+                    "autoWidth": false,
+                    "columnDefs": [
+                        { "orderable": false, "targets": -1 } // Disable sorting on Actions column
+                    ]
+                });
 
-            // Event handlers
-            $('#newjob').on('click', function() {
-                openJobModal();
-            });
-
-            $('#backup_now').on('click', function() {
-                createBackup();
-            });
-
-            $('#refresh_jobs').on('click', function() {
+                // Load all data on page load
                 loadJobs();
                 loadAllCrontabEntries();
                 loadEnvironmentVariables();
+
+                // Event handlers
+                $('#newjob').on('click', function() {
+                    openJobModal();
+                });
+
+                $('#backup_now').on('click', function() {
+                    createBackup();
+                });
+
+                $('#refresh_jobs').on('click', function() {
+                    loadJobs();
+                    loadAllCrontabEntries();
+                    loadEnvironmentVariables();
+                });
+
+                // Schedule presets
+                $('.schedule-preset').on('click', function(e) {
+                    e.preventDefault();
+                    $('#job-schedule').val($(this).data('schedule'));
+                });
+
+                // Script picker
+                $('#browse-scripts').on('click', function() {
+                    showScriptPicker();
+                });
+
+                // Build command from parameters
+                $('#build-command').on('click', function() {
+                    buildCommandFromParams();
+                });
+
+                // View POD documentation
+                $('#view-pod').on('click', function() {
+                    showPodViewer();
+                });
+
+                // Clear parameters
+                $('#clear-params').on('click', function() {
+                    clearScriptParameters();
+                });
+
+                // Form submissions
+                $('#jobForm').on('submit', function(e) {
+                    e.preventDefault();
+                    saveJob();
+                });
+
+                $('#deleteForm').on('submit', function(e) {
+                    e.preventDefault();
+                    deleteJob();
+                });
+
+                // Row-action handlers below are delegated from a static ancestor rather
+                // than bound directly to each row. DataTables only keeps one page's worth
+                // of <tr> elements in the DOM at a time and rebuilds them on paging,
+                // sorting, or searching, so a direct per-row binding (rebound after each
+                // draw()) silently stops working for any row not visible at bind time.
+                // Delegation binds once and keeps matching new rows as they're drawn.
+                $('#jobs_table').on('click', '.edit-job', function() {
+                    let jobId = $(this).data('job-id');
+                    openJobModal(jobId);
+                });
+
+                $('#jobs_table').on('click', '.enable-job, .disable-job', function() {
+                    let jobId = $(this).data('job-id');
+                    let enable = $(this).hasClass('enable-job');
+                    toggleJobStatus(jobId, enable);
+                });
+
+                $('#jobs_table').on('click', '.delete-job', function() {
+                    let jobId = $(this).data('job-id');
+                    let jobDesc = $(this).data('job-desc');
+                    openDeleteModal(jobId, jobDesc);
+                });
+
+                $('#jobs_table').on('click', '.view-doc-btn', function() {
+                    let command = $(this).attr('data-command');
+                    viewScriptDocumentation(command);
+                });
+
+                $('#system_jobs_table').on('click', '.view-doc-btn', function() {
+                    let command = $(this).attr('data-command');
+                    viewScriptDocumentation(command);
+                });
+
+                $('#system_jobs_table').on('click', '.migrate-job', function() {
+                    let schedule = $(this).attr('data-schedule');
+                    let command = $(this).attr('data-command');
+                    let comments = JSON.parse(decodeURIComponent($(this).attr('data-comments')));
+
+                    $.ajax({
+                        url: '/api/v1/contrib/crontab/jobs/migrate',
+                        method: 'POST',
+                        data: JSON.stringify({ schedule: schedule, command: command, comments: comments }),
+                        contentType: 'application/json',
+                        success: function(job) {
+                            showMessage('System job migrated to a managed job', 'success');
+                            loadJobs();
+                            loadAllCrontabEntries();
+                            new bootstrap.Tab(document.getElementById('managed-tab')).show();
+                            openJobModal(job.id);
+                        },
+                        error: function(xhr, status, error) {
+                            let message = 'Failed to migrate job';
+                            if (xhr.responseJSON && xhr.responseJSON.error) {
+                                message += ': ' + xhr.responseJSON.error;
+                            }
+                            showMessage(message, 'danger');
+                        }
+                    });
+                });
+
+                // Environment variable rows are appended dynamically to this (static)
+                // container, so the same delegation reasoning applies.
+                $('#environment-container').on('click', '.remove-env-var', function() {
+                    $(this).closest('.env-var-row').remove();
+                });
+
+                // Script parameter builder: repeatable/hash entry rows are appended
+                // dynamically to this (static) container.
+                $('#script-options').on('click', '.add-repeatable-entry', function() {
+                    let targetId = $(this).data('target');
+                    let inputType = $(this).data('input-type') || 'text';
+                    let placeholder = $(this).data('placeholder') || 'Enter value';
+                    let entryHtml = `
+                        <div class="input-group input-group-sm mb-1 repeatable-entry">
+                            <input type="${inputType}" class="form-control repeatable-value"
+                                   placeholder="${placeholder}">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    `;
+                    $('#' + targetId).append(entryHtml);
+                });
+
+                $('#script-options').on('click', '.add-hash-entry', function() {
+                    let targetId = $(this).data('target');
+                    let entryHtml = `
+                        <div class="input-group input-group-sm mb-1 hash-entry">
+                            <input type="text" class="form-control hash-key" placeholder="key">
+                            <span class="input-group-text">=</span>
+                            <input type="text" class="form-control hash-value" placeholder="value">
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    `;
+                    $('#' + targetId).append(entryHtml);
+                });
+
+                $('#script-options').on('click', '.remove-repeatable-entry', function() {
+                    let $container = $(this).closest('.repeatable-container, .repeatable-hash-container');
+                    // Keep at least one entry
+                    if ($container.children('.repeatable-entry, .hash-entry').length > 1) {
+                        $(this).closest('.repeatable-entry, .hash-entry').remove();
+                    } else {
+                        // Clear the inputs instead of removing the last entry
+                        $(this).closest('.repeatable-entry, .hash-entry').find('input').val('');
+                    }
+                });
             });
 
-            // Schedule presets
-            $('.schedule-preset').on('click', function(e) {
-                e.preventDefault();
-                $('#job-schedule').val($(this).data('schedule'));
-            });
-
-            // Script picker
-            $('#browse-scripts').on('click', function() {
-                showScriptPicker();
-            });
-
-            // Build command from parameters
-            $('#build-command').on('click', function() {
-                buildCommandFromParams();
-            });
-
-            // View POD documentation
-            $('#view-pod').on('click', function() {
-                showPodViewer();
-            });
-
-            // Clear parameters
-            $('#clear-params').on('click', function() {
-                clearScriptParameters();
-            });
-
-            // Form submissions
-            $('#jobForm').on('submit', function(e) {
-                e.preventDefault();
-                saveJob();
-            });
-
-            $('#deleteForm').on('submit', function(e) {
-                e.preventDefault();
-                deleteJob();
-            });
-
-            // Row-action handlers below are delegated from a static ancestor rather
-            // than bound directly to each row. DataTables only keeps one page's worth
-            // of <tr> elements in the DOM at a time and rebuilds them on paging,
-            // sorting, or searching, so a direct per-row binding (rebound after each
-            // draw()) silently stops working for any row not visible at bind time.
-            // Delegation binds once and keeps matching new rows as they're drawn.
-            $('#jobs_table').on('click', '.edit-job', function() {
-                let jobId = $(this).data('job-id');
-                openJobModal(jobId);
-            });
-
-            $('#jobs_table').on('click', '.enable-job, .disable-job', function() {
-                let jobId = $(this).data('job-id');
-                let enable = $(this).hasClass('enable-job');
-                toggleJobStatus(jobId, enable);
-            });
-
-            $('#jobs_table').on('click', '.delete-job', function() {
-                let jobId = $(this).data('job-id');
-                let jobDesc = $(this).data('job-desc');
-                openDeleteModal(jobId, jobDesc);
-            });
-
-            $('#jobs_table').on('click', '.view-doc-btn', function() {
-                let command = $(this).attr('data-command');
-                viewScriptDocumentation(command);
-            });
-
-            $('#system_jobs_table').on('click', '.view-doc-btn', function() {
-                let command = $(this).attr('data-command');
-                viewScriptDocumentation(command);
-            });
-
-            $('#system_jobs_table').on('click', '.migrate-job', function() {
-                let schedule = $(this).attr('data-schedule');
-                let command = $(this).attr('data-command');
-                let comments = JSON.parse(decodeURIComponent($(this).attr('data-comments')));
+            function loadJobs() {
+                $('#jobs-loading').show();
+                $('#jobs_table').hide();
 
                 $.ajax({
-                    url: '/api/v1/contrib/crontab/jobs/migrate',
-                    method: 'POST',
-                    data: JSON.stringify({ schedule: schedule, command: command, comments: comments }),
-                    contentType: 'application/json',
-                    success: function(job) {
-                        showMessage('System job migrated to a managed job', 'success');
-                        loadJobs();
-                        loadAllCrontabEntries();
-                        new bootstrap.Tab(document.getElementById('managed-tab')).show();
-                        openJobModal(job.id);
+                    url: '/api/v1/contrib/crontab/jobs',
+                    method: 'GET',
+                    success: function(data) {
+                        populateJobsTable(data.jobs);
                     },
                     error: function(xhr, status, error) {
-                        let message = 'Failed to migrate job';
+                        showMessage('Failed to load jobs: ' + error, 'danger');
+                        $('#jobs-loading').hide();
+                        $('#jobs_table').show();
+                    }
+                });
+            }
+
+            function populateJobsTable(jobs) {
+                jobsTable.clear();
+
+                jobs.forEach(function(job) {
+                    let statusBadge = job.enabled
+                        ? '<span class="badge bg-success">Enabled</span>'
+                        : '<span class="badge bg-secondary">Disabled</span>';
+
+                    if (job.policy_violations && job.policy_violations.length > 0) {
+                        let violationLabels = job.policy_violations.map(function(v) {
+                            return v === 'non_repeatable' ? 'duplicate script' : 'outside allowed hours';
+                        }).join(', ');
+                        statusBadge += ' <span class="badge bg-warning text-dark" title="Violates script policy: ' + violationLabels + '"><i class="fa fa-exclamation-triangle"></i></span>';
+                    }
+
+                    let envVars = '';
+                    if (job.environment && Object.keys(job.environment).length > 0) {
+                        Object.keys(job.environment).forEach(function(key) {
+                            envVars += '<span class="env-var">' + key + '</span>';
+                        });
+                    } else {
+                        envVars = '<span class="text-muted">None</span>';
+                    }
+
+                    // Use name, description, or command snippet for identification
+                    let jobIdentifier = job.name || job.description || job.command.substring(0, 50) + (job.command.length > 50 ? '...' : '');
+
+                    // Build description cell with name at top if present
+                    let descriptionHtml = '';
+                    if (job.name) {
+                        descriptionHtml += '<strong>' + job.name + '</strong><br>';
+                    }
+                    if (job.description) {
+                        descriptionHtml += job.description;
+                    } else if (!job.name) {
+                        descriptionHtml = '<span class="text-muted">No description</span>';
+                    }
+
+                    // Build command cell with documentation button if it's a Perl script
+                    let scriptInfo = extractScriptInfo(job.command);
+                    let commandHtml = '<div><code>' + escapeHtml(job.command) + '</code>';
+                    if (scriptInfo.isPerlScript) {
+                        // Escape command for use in data attribute
+                        let escapedCommand = job.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" data-command="' + escapedCommand + '" title="View documentation"><i class="fa fa-book"></i></button>';
+                    }
+                    commandHtml += '</div>';
+
+                    let actions = `
+                        <button class="btn btn-xs btn-primary edit-job" data-job-id="${job.id}">
+                            <i class="fa fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-xs ${job.enabled ? 'btn-warning disable-job' : 'btn-success enable-job'}" data-job-id="${job.id}">
+                            <i class="fa ${job.enabled ? 'fa-pause' : 'fa-play'}"></i> ${job.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                        <button class="btn btn-xs btn-danger delete-job" data-job-id="${job.id}" data-job-desc="${jobIdentifier}">
+                            <i class="fa fa-trash"></i> Delete
+                        </button>
+                    `;
+
+                    jobsTable.row.add([
+                        statusBadge,
+                        '<code class="schedule-preview">' + job.schedule + '</code>',
+                        commandHtml,
+                        descriptionHtml,
+                        envVars,
+                        new Date(job.updated_at).toLocaleDateString(),
+                        actions
+                    ]);
+                });
+
+                jobsTable.draw();
+
+                // Hide spinner and show table
+                $('#jobs-loading').hide();
+                $('#jobs_table').show();
+            }
+
+            function openJobModal(jobId = null) {
+                if (jobId) {
+                    // Edit existing job
+                    $('#job-modal-label').text('Edit Job');
+                    $('#job-id').val(jobId);
+                    loadJobForEdit(jobId);
+                } else {
+                    // New job
+                    $('#job-modal-label').text('New Job');
+                    $('#job-id').val('');
+                    clearJobForm();
+                }
+                $('#jobModal').modal('show');
+            }
+
+            function loadJobForEdit(jobId) {
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/jobs/' + jobId,
+                    method: 'GET',
+                    success: function(job) {
+                        $('#job-name').val(job.name);
+                        $('#job-description').val(job.description);
+                        $('#job-schedule').val(job.schedule);
+                        $('#job-command').val(job.command);
+                        $('#job-enabled').val(job.enabled ? '1' : '0');
+
+                        // Try to parse command to extract base script
+                        tryMatchCommandToScript(job.command);
+
+                        // List any environment variables the job already has (removable,
+                        // but none can be added or changed)
+                        $('#environment-container').empty();
+                        let hasEnvironment = !!(job.environment && Object.keys(job.environment).length > 0);
+                        if (hasEnvironment) {
+                            Object.keys(job.environment).forEach(function(key) {
+                                addEnvironmentVariable(key, job.environment[key]);
+                            });
+                        }
+                        $('#environment-group').toggle(hasEnvironment);
+                    },
+                    error: function(xhr, status, error) {
+                        showMessage('Failed to load job: ' + error, 'danger');
+                        }
+                    });
+            }
+
+            function tryMatchCommandToScript(command) {
+                // Extract the script path (everything before first space or entire string)
+                let parts = command.split(/\s+/);
+                let scriptPath = parts[0];
+
+                // Try to load all scripts and find a match
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/scripts',
+                    method: 'GET',
+                    success: function(data) {
+                        if (data.scripts) {
+                            let matchedScript = data.scripts.find(s => s.relative_path === scriptPath || s.path === scriptPath);
+                            if (matchedScript) {
+                                $('#base-script-path').val(scriptPath);
+
+                                // For Perl scripts, load parameters and populate the builder
+                                if (matchedScript.type === 'perl') {
+                                    loadScriptDetailsAndPopulateParams(matchedScript.name, command);
+                                }
+                            }
+                        }
+                    },
+                    error: function() {
+                        // If we can't load scripts or match, that's ok
+                        // The command validation will handle this on save
+                    }
+                });
+            }
+
+            function clearJobForm() {
+                $('#jobForm')[0].reset();
+                $('#environment-container').empty();
+                $('#environment-group').hide();
+                $('#base-script-path').val('');
+                $('#script-params-container').hide();
+                $('#script-description').hide();
+                $('#script-policy-hint').hide();
+                $('#script-options').empty();
+                currentScriptData = null;
+            }
+
+            function clearScriptParameters() {
+                // Clear all parameter inputs but keep the base script and option structure
+                $('.script-option').each(function() {
+                    let $input = $(this);
+                    let type = $input.data('option-type');
+                    if (type === 'boolean') {
+                        $input.prop('checked', false);
+                    } else if (type === 'negatable') {
+                        $input.val('');
+                    } else if (type === 'incremental') {
+                        $input.val(0);
+                    } else {
+                        $input.val('');
+                    }
+                });
+                // Clear repeatable containers back to single empty entry
+                $('.repeatable-container, .repeatable-hash-container').each(function() {
+                    let $entries = $(this).children('.repeatable-entry, .hash-entry');
+                    $entries.not(':first').remove();
+                    $entries.first().find('input').val('');
+                });
+                // Clear positional args
+                $('.positional-arg').val('');
+
+                let basePath = $('#base-script-path').val();
+                if (basePath) {
+                    $('#job-command').val(basePath);
+                }
+            }
+
+            function addEnvironmentVariable(key = '', value = '') {
+                let envHtml = `
+                    <div class="row mb-2 env-var-row">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control env-key" placeholder="Variable name" value="${key}" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" class="form-control env-value" placeholder="Variable value" value="${value}" readonly>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-env-var">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                $('#environment-container').append(envHtml);
+            }
+
+            function saveJob() {
+                // If the parameter builder is active, sync #job-command from its fields first
+                // so that edits made there aren't lost if "Build Command" was never clicked.
+                if ($('#base-script-path').val() && !buildCommandFromParams(true)) {
+                    return;
+                }
+
+                let jobData = {
+                    name: $('#job-name').val(),
+                    description: $('#job-description').val(),
+                    schedule: $('#job-schedule').val(),
+                    command: $('#job-command').val(),
+                    enabled: $('#job-enabled').val() === '1'
+                };
+
+                // Collect environment variables
+                let environment = {};
+                $('.env-var-row').each(function() {
+                    let key = $(this).find('.env-key').val().trim();
+                    let value = $(this).find('.env-value').val().trim();
+                    if (key && value) {
+                        environment[key] = value;
+                    }
+                });
+                jobData.environment = environment;
+
+                let jobId = $('#job-id').val();
+                let url = '/api/v1/contrib/crontab/jobs';
+                let method = 'POST';
+
+                if (jobId) {
+                    url += '/' + jobId;
+                    method = 'PUT';
+                }
+
+                $.ajax({
+                        url: url,
+                    method: method,
+                    data: JSON.stringify(jobData),
+                    contentType: 'application/json',
+                    success: function(data) {
+                        showMessage(jobId ? 'Job updated successfully' : 'Job created successfully', 'success');
+                        $('#jobModal').modal('hide');
+                        loadJobs();
+                    },
+                    error: function(xhr, status, error) {
+                        let message = 'Failed to save job';
                         if (xhr.responseJSON && xhr.responseJSON.error) {
                             message += ': ' + xhr.responseJSON.error;
                         }
                         showMessage(message, 'danger');
                     }
                 });
-            });
-
-            // Environment variable rows are appended dynamically to this (static)
-            // container, so the same delegation reasoning applies.
-            $('#environment-container').on('click', '.remove-env-var', function() {
-                $(this).closest('.env-var-row').remove();
-            });
-
-            // Script parameter builder: repeatable/hash entry rows are appended
-            // dynamically to this (static) container.
-            $('#script-options').on('click', '.add-repeatable-entry', function() {
-                let targetId = $(this).data('target');
-                let inputType = $(this).data('input-type') || 'text';
-                let placeholder = $(this).data('placeholder') || 'Enter value';
-                let entryHtml = `
-                    <div class="input-group input-group-sm mb-1 repeatable-entry">
-                        <input type="${inputType}" class="form-control repeatable-value"
-                               placeholder="${placeholder}">
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                `;
-                $('#' + targetId).append(entryHtml);
-            });
-
-            $('#script-options').on('click', '.add-hash-entry', function() {
-                let targetId = $(this).data('target');
-                let entryHtml = `
-                    <div class="input-group input-group-sm mb-1 hash-entry">
-                        <input type="text" class="form-control hash-key" placeholder="key">
-                        <span class="input-group-text">=</span>
-                        <input type="text" class="form-control hash-value" placeholder="value">
-                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                `;
-                $('#' + targetId).append(entryHtml);
-            });
-
-            $('#script-options').on('click', '.remove-repeatable-entry', function() {
-                let $container = $(this).closest('.repeatable-container, .repeatable-hash-container');
-                // Keep at least one entry
-                if ($container.children('.repeatable-entry, .hash-entry').length > 1) {
-                    $(this).closest('.repeatable-entry, .hash-entry').remove();
-                } else {
-                    // Clear the inputs instead of removing the last entry
-                    $(this).closest('.repeatable-entry, .hash-entry').find('input').val('');
-                }
-            });
-        });
-
-        function loadJobs() {
-            $('#jobs-loading').show();
-            $('#jobs_table').hide();
-
-            $.ajax({
-                url: '/api/v1/contrib/crontab/jobs',
-                method: 'GET',
-                success: function(data) {
-                    populateJobsTable(data.jobs);
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to load jobs: ' + error, 'danger');
-                    $('#jobs-loading').hide();
-                    $('#jobs_table').show();
-                }
-            });
-        }
-
-        function populateJobsTable(jobs) {
-            jobsTable.clear();
-
-            jobs.forEach(function(job) {
-                let statusBadge = job.enabled
-                    ? '<span class="badge bg-success">Enabled</span>'
-                    : '<span class="badge bg-secondary">Disabled</span>';
-
-                if (job.policy_violations && job.policy_violations.length > 0) {
-                    let violationLabels = job.policy_violations.map(function(v) {
-                        return v === 'non_repeatable' ? 'duplicate script' : 'outside allowed hours';
-                    }).join(', ');
-                    statusBadge += ' <span class="badge bg-warning text-dark" title="Violates script policy: ' + violationLabels + '"><i class="fa fa-exclamation-triangle"></i></span>';
-                }
-
-                let envVars = '';
-                if (job.environment && Object.keys(job.environment).length > 0) {
-                    Object.keys(job.environment).forEach(function(key) {
-                        envVars += '<span class="env-var">' + key + '</span>';
-                    });
-                } else {
-                    envVars = '<span class="text-muted">None</span>';
-                }
-
-                // Use name, description, or command snippet for identification
-                let jobIdentifier = job.name || job.description || job.command.substring(0, 50) + (job.command.length > 50 ? '...' : '');
-
-                // Build description cell with name at top if present
-                let descriptionHtml = '';
-                if (job.name) {
-                    descriptionHtml += '<strong>' + job.name + '</strong><br>';
-                }
-                if (job.description) {
-                    descriptionHtml += job.description;
-                } else if (!job.name) {
-                    descriptionHtml = '<span class="text-muted">No description</span>';
-                }
-
-                // Build command cell with documentation button if it's a Perl script
-                let scriptInfo = extractScriptInfo(job.command);
-                let commandHtml = '<div><code>' + escapeHtml(job.command) + '</code>';
-                if (scriptInfo.isPerlScript) {
-                    // Escape command for use in data attribute
-                    let escapedCommand = job.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                    commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" data-command="' + escapedCommand + '" title="View documentation"><i class="fa fa-book"></i></button>';
-                }
-                commandHtml += '</div>';
-
-                let actions = `
-                    <button class="btn btn-xs btn-primary edit-job" data-job-id="${job.id}">
-                        <i class="fa fa-edit"></i> Edit
-                    </button>
-                    <button class="btn btn-xs ${job.enabled ? 'btn-warning disable-job' : 'btn-success enable-job'}" data-job-id="${job.id}">
-                        <i class="fa ${job.enabled ? 'fa-pause' : 'fa-play'}"></i> ${job.enabled ? 'Disable' : 'Enable'}
-                    </button>
-                    <button class="btn btn-xs btn-danger delete-job" data-job-id="${job.id}" data-job-desc="${jobIdentifier}">
-                        <i class="fa fa-trash"></i> Delete
-                    </button>
-                `;
-
-                jobsTable.row.add([
-                    statusBadge,
-                    '<code class="schedule-preview">' + job.schedule + '</code>',
-                    commandHtml,
-                    descriptionHtml,
-                    envVars,
-                    new Date(job.updated_at).toLocaleDateString(),
-                    actions
-                ]);
-            });
-
-            jobsTable.draw();
-
-            // Hide spinner and show table
-            $('#jobs-loading').hide();
-            $('#jobs_table').show();
-        }
-
-        function openJobModal(jobId = null) {
-            if (jobId) {
-                // Edit existing job
-                $('#job-modal-label').text('Edit Job');
-                $('#job-id').val(jobId);
-                loadJobForEdit(jobId);
-            } else {
-                // New job
-                $('#job-modal-label').text('New Job');
-                $('#job-id').val('');
-                clearJobForm();
             }
-            $('#jobModal').modal('show');
-        }
 
-        function loadJobForEdit(jobId) {
-            $.ajax({
-                url: '/api/v1/contrib/crontab/jobs/' + jobId,
-                method: 'GET',
-                success: function(job) {
-                    $('#job-name').val(job.name);
-                    $('#job-description').val(job.description);
-                    $('#job-schedule').val(job.schedule);
-                    $('#job-command').val(job.command);
-                    $('#job-enabled').val(job.enabled ? '1' : '0');
-
-                    // Try to parse command to extract base script
-                    tryMatchCommandToScript(job.command);
-
-                    // List any environment variables the job already has (removable,
-                    // but none can be added or changed)
-                    $('#environment-container').empty();
-                    let hasEnvironment = !!(job.environment && Object.keys(job.environment).length > 0);
-                    if (hasEnvironment) {
-                        Object.keys(job.environment).forEach(function(key) {
-                            addEnvironmentVariable(key, job.environment[key]);
-                        });
-                    }
-                    $('#environment-group').toggle(hasEnvironment);
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to load job: ' + error, 'danger');
+            function toggleJobStatus(jobId, enable) {
+                let action = enable ? 'enable' : 'disable';
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/jobs/' + jobId + '/' + action,
+                    method: 'POST',
+                    success: function(data) {
+                        showMessage('Job ' + (enable ? 'enabled' : 'disabled') + ' successfully', 'success');
+                        loadJobs();
+                    },
+                    error: function(xhr, status, error) {
+                        showMessage('Failed to ' + action + ' job: ' + error, 'danger');
                     }
                 });
-        }
-
-        function tryMatchCommandToScript(command) {
-            // Extract the script path (everything before first space or entire string)
-            let parts = command.split(/\s+/);
-            let scriptPath = parts[0];
-
-            // Try to load all scripts and find a match
-            $.ajax({
-                url: '/api/v1/contrib/crontab/scripts',
-                method: 'GET',
-                success: function(data) {
-                    if (data.scripts) {
-                        let matchedScript = data.scripts.find(s => s.relative_path === scriptPath || s.path === scriptPath);
-                        if (matchedScript) {
-                            $('#base-script-path').val(scriptPath);
-
-                            // For Perl scripts, load parameters and populate the builder
-                            if (matchedScript.type === 'perl') {
-                                loadScriptDetailsAndPopulateParams(matchedScript.name, command);
-                            }
-                        }
-                    }
-                },
-                error: function() {
-                    // If we can't load scripts or match, that's ok
-                    // The command validation will handle this on save
-                }
-            });
-        }
-
-        function clearJobForm() {
-            $('#jobForm')[0].reset();
-            $('#environment-container').empty();
-            $('#environment-group').hide();
-            $('#base-script-path').val('');
-            $('#script-params-container').hide();
-            $('#script-description').hide();
-            $('#script-policy-hint').hide();
-            $('#script-options').empty();
-            currentScriptData = null;
-        }
-
-        function clearScriptParameters() {
-            // Clear all parameter inputs but keep the base script and option structure
-            $('.script-option').each(function() {
-                let $input = $(this);
-                let type = $input.data('option-type');
-                if (type === 'boolean') {
-                    $input.prop('checked', false);
-                } else if (type === 'negatable') {
-                    $input.val('');
-                } else if (type === 'incremental') {
-                    $input.val(0);
-                } else {
-                    $input.val('');
-                }
-            });
-            // Clear repeatable containers back to single empty entry
-            $('.repeatable-container, .repeatable-hash-container').each(function() {
-                let $entries = $(this).children('.repeatable-entry, .hash-entry');
-                $entries.not(':first').remove();
-                $entries.first().find('input').val('');
-            });
-            // Clear positional args
-            $('.positional-arg').val('');
-
-            let basePath = $('#base-script-path').val();
-            if (basePath) {
-                $('#job-command').val(basePath);
-            }
-        }
-
-        function addEnvironmentVariable(key = '', value = '') {
-            let envHtml = `
-                <div class="row mb-2 env-var-row">
-                    <div class="col-md-4">
-                        <input type="text" class="form-control env-key" placeholder="Variable name" value="${key}" readonly>
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" class="form-control env-value" placeholder="Variable value" value="${value}" readonly>
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-env-var">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-            $('#environment-container').append(envHtml);
-        }
-
-        function saveJob() {
-            // If the parameter builder is active, sync #job-command from its fields first
-            // so that edits made there aren't lost if "Build Command" was never clicked.
-            if ($('#base-script-path').val() && !buildCommandFromParams(true)) {
-                return;
             }
 
-            let jobData = {
-                name: $('#job-name').val(),
-                description: $('#job-description').val(),
-                schedule: $('#job-schedule').val(),
-                command: $('#job-command').val(),
-                enabled: $('#job-enabled').val() === '1'
-            };
-
-            // Collect environment variables
-            let environment = {};
-            $('.env-var-row').each(function() {
-                let key = $(this).find('.env-key').val().trim();
-                let value = $(this).find('.env-value').val().trim();
-                if (key && value) {
-                    environment[key] = value;
-                }
-            });
-            jobData.environment = environment;
-
-            let jobId = $('#job-id').val();
-            let url = '/api/v1/contrib/crontab/jobs';
-            let method = 'POST';
-
-            if (jobId) {
-                url += '/' + jobId;
-                method = 'PUT';
+            function openDeleteModal(jobId, jobDesc) {
+                $('#delete-job-id').val(jobId);
+                $('#delete-job-name').text(jobDesc);
+                $('#deleteModal').modal('show');
             }
 
-            $.ajax({
-                    url: url,
-                method: method,
-                data: JSON.stringify(jobData),
-                contentType: 'application/json',
-                success: function(data) {
-                    showMessage(jobId ? 'Job updated successfully' : 'Job created successfully', 'success');
-                    $('#jobModal').modal('hide');
-                    loadJobs();
-                },
-                error: function(xhr, status, error) {
-                    let message = 'Failed to save job';
-                    if (xhr.responseJSON && xhr.responseJSON.error) {
-                        message += ': ' + xhr.responseJSON.error;
+            function deleteJob() {
+                let jobId = $('#delete-job-id').val();
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/jobs/' + jobId,
+                    method: 'DELETE',
+                    success: function(data) {
+                        showMessage('Job deleted successfully', 'success');
+                    $('#deleteModal').modal('hide');
+                        loadJobs();
+                    },
+                    error: function(xhr, status, error) {
+                        showMessage('Failed to delete job: ' + error, 'danger');
                     }
-                    showMessage(message, 'danger');
-                }
-            });
-        }
+                });
+            }
 
-        function toggleJobStatus(jobId, enable) {
-            let action = enable ? 'enable' : 'disable';
-            $.ajax({
-                url: '/api/v1/contrib/crontab/jobs/' + jobId + '/' + action,
-                method: 'POST',
-                success: function(data) {
-                    showMessage('Job ' + (enable ? 'enabled' : 'disabled') + ' successfully', 'success');
-                    loadJobs();
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to ' + action + ' job: ' + error, 'danger');
-                }
-            });
-        }
+            function loadAllCrontabEntries() {
+                $('#system-jobs-loading').show();
+                $('#system_jobs_table').hide();
 
-        function openDeleteModal(jobId, jobDesc) {
-            $('#delete-job-id').val(jobId);
-            $('#delete-job-name').text(jobDesc);
-            $('#deleteModal').modal('show');
-        }
-
-        function deleteJob() {
-            let jobId = $('#delete-job-id').val();
-            $.ajax({
-                url: '/api/v1/contrib/crontab/jobs/' + jobId,
-                method: 'DELETE',
-                success: function(data) {
-                    showMessage('Job deleted successfully', 'success');
-                $('#deleteModal').modal('hide');
-                    loadJobs();
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to delete job: ' + error, 'danger');
-                }
-            });
-        }
-
-        function loadAllCrontabEntries() {
-            $('#system-jobs-loading').show();
-            $('#system_jobs_table').hide();
-
-            $.ajax({
-                url: '/api/v1/contrib/crontab/crontab/all',
-                method: 'GET',
-                success: function(data) {
-                    populateSystemJobsTable(data.entries);
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to load system jobs: ' + error, 'danger');
-                    $('#system-jobs-loading').hide();
-                    $('#system_jobs_table').show();
-                }
-            });
-        }
-
-        function populateSystemJobsTable(entries) {
-            systemJobsTable.clear();
-
-            // Filter out managed jobs - only show system jobs
-            let systemJobs = entries.filter(entry => !entry.managed);
-
-            if (systemJobs.length === 0) {
-                systemJobsTable.row.add([
-                    '<span class="text-muted">-</span>',
-                    '<span class="text-muted">-</span>',
-                    '<span class="text-muted">No system jobs found</span>',
-                    '<span class="text-muted">-</span>',
-                    '<span class="text-muted">-</span>'
-                ]);
-            } else {
-                systemJobs.forEach(function(entry) {
-                    let statusBadge = entry.enabled
-                        ? '<span class="badge bg-success">Enabled</span>'
-                        : '<span class="badge bg-secondary">Disabled</span>';
-
-                    let comments = '';
-                    if (entry.comments && entry.comments.length > 0) {
-                        comments = entry.comments.map(c => '<div class="text-muted small">' + c + '</div>').join('');
-                    } else {
-                        comments = '<span class="text-muted">No comments</span>';
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/crontab/all',
+                    method: 'GET',
+                    success: function(data) {
+                        populateSystemJobsTable(data.entries);
+                    },
+                    error: function(xhr, status, error) {
+                        showMessage('Failed to load system jobs: ' + error, 'danger');
+                        $('#system-jobs-loading').hide();
+                        $('#system_jobs_table').show();
                     }
+                });
+            }
 
-                    // Build command cell with documentation button if it's a Perl script
-                    let scriptInfo = extractScriptInfo(entry.command);
-                    let commandHtml = '<div><code>' + escapeHtml(entry.command) + '</code>';
-                    if (scriptInfo.isPerlScript) {
-                        // Escape command for use in data attribute
-                        let escapedCommand = entry.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                        commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" data-command="' + escapedCommand + '" title="View documentation"><i class="fa fa-book"></i></button>';
-                    }
-                    commandHtml += '</div>';
+            function populateSystemJobsTable(entries) {
+                systemJobsTable.clear();
 
-                    let escapedScheduleAttr = entry.schedule.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                    let escapedCommandAttr = entry.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                    let commentsAttr = encodeURIComponent(JSON.stringify(entry.comments || []));
-                    let migrateHtml = '<button class="btn btn-xs btn-success migrate-job" data-schedule="' + escapedScheduleAttr + '" data-command="' + escapedCommandAttr + '" data-comments="' + commentsAttr + '">' +
-                        '<i class="fa fa-arrow-right"></i> Migrate</button>';
+                // Filter out managed jobs - only show system jobs
+                let systemJobs = entries.filter(entry => !entry.managed);
 
+                if (systemJobs.length === 0) {
                     systemJobsTable.row.add([
-                        statusBadge,
-                        '<code class="schedule-preview">' + entry.schedule + '</code>',
-                        commandHtml,
-                        comments,
-                        migrateHtml
+                        '<span class="text-muted">-</span>',
+                        '<span class="text-muted">-</span>',
+                        '<span class="text-muted">No system jobs found</span>',
+                        '<span class="text-muted">-</span>',
+                        '<span class="text-muted">-</span>'
                     ]);
-                });
-            }
+                } else {
+                    systemJobs.forEach(function(entry) {
+                        let statusBadge = entry.enabled
+                            ? '<span class="badge bg-success">Enabled</span>'
+                            : '<span class="badge bg-secondary">Disabled</span>';
 
-            systemJobsTable.draw();
+                        let comments = '';
+                        if (entry.comments && entry.comments.length > 0) {
+                            comments = entry.comments.map(c => '<div class="text-muted small">' + c + '</div>').join('');
+                        } else {
+                            comments = '<span class="text-muted">No comments</span>';
+                        }
 
-            // Hide spinner and show table
-            $('#system-jobs-loading').hide();
-            $('#system_jobs_table').show();
-        }
+                        // Build command cell with documentation button if it's a Perl script
+                        let scriptInfo = extractScriptInfo(entry.command);
+                        let commandHtml = '<div><code>' + escapeHtml(entry.command) + '</code>';
+                        if (scriptInfo.isPerlScript) {
+                            // Escape command for use in data attribute
+                            let escapedCommand = entry.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                            commandHtml += ' <button class="btn btn-xs btn-info view-doc-btn ms-1" data-command="' + escapedCommand + '" title="View documentation"><i class="fa fa-book"></i></button>';
+                        }
+                        commandHtml += '</div>';
 
-        function loadEnvironmentVariables() {
-            $.ajax({
-                url: '/api/v1/contrib/crontab/crontab/environment',
-                method: 'GET',
-                success: function(data) {
-                    populateEnvironmentTable(data.environment);
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to load environment variables: ' + error, 'danger');
+                        let escapedScheduleAttr = entry.schedule.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        let escapedCommandAttr = entry.command.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        let commentsAttr = encodeURIComponent(JSON.stringify(entry.comments || []));
+                        let migrateHtml = '<button class="btn btn-xs btn-success migrate-job" data-schedule="' + escapedScheduleAttr + '" data-command="' + escapedCommandAttr + '" data-comments="' + commentsAttr + '">' +
+                            '<i class="fa fa-arrow-right"></i> Migrate</button>';
+
+                        systemJobsTable.row.add([
+                            statusBadge,
+                            '<code class="schedule-preview">' + entry.schedule + '</code>',
+                            commandHtml,
+                            comments,
+                            migrateHtml
+                        ]);
+                    });
                 }
-            });
-        }
 
-        function populateEnvironmentTable(environment) {
-            let tbody = $('#env_vars_tbody');
-            tbody.empty();
+                systemJobsTable.draw();
 
-            if (!environment || Object.keys(environment).length === 0) {
-                tbody.append('<tr><td colspan="2" class="text-muted text-center">No global environment variables defined</td></tr>');
-            } else {
-                let count = 0;
-                Object.keys(environment).sort().forEach(function(key) {
-                    tbody.append(
-                        '<tr>' +
-                        '<td><strong>' + key + '</strong></td>' +
-                        '<td><code>' + environment[key] + '</code></td>' +
-                        '</tr>'
-                    );
-                    count++;
-                });
-
-                // Update the collapse button to show count
-                $('#env-heading button').html(
-                    '<i class="fa fa-list"></i> Global Environment Variables ' +
-                    '<span class="badge bg-info">' + count + '</span> ' +
-                    '<small class="text-muted">(click to expand)</small>'
-                );
-            }
-        }
-
-        function createBackup() {
-            // Trigger download of the latest backup by navigating to the endpoint
-            window.location.href = '/api/v1/contrib/crontab/backup';
-
-            // Show message that download has been triggered
-            showMessage('Downloading latest backup...', 'success');
-        }
-
-        function showMessage(message, type) {
-            let alertClass = 'alert-' + type;
-            let messageHtml = '<div id="message" class="alert ' + alertClass + ' alert-dismissible fade show">' +
-                              message +
-                              '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
-                              '</div>';
-            $('#message').replaceWith(messageHtml);
-
-            // Auto-hide success messages
-            if (type === 'success') {
-                setTimeout(function() {
-                    $('#message').fadeOut();
-                }, 3000);
-            }
-        }
-
-        // Script Picker Functions
-        let currentScriptData = null;
-
-        // Helper function to extract script information from command
-        function extractScriptInfo(command) {
-            if (!command) return { scriptPath: '', scriptName: '', isPerlScript: false };
-
-            // Extract the script path (everything before first space or entire string)
-            let parts = command.trim().split(/\s+/);
-            let scriptPath = parts[0];
-
-            // Extract script name from path
-            let scriptName = scriptPath.split('/').pop();
-
-            // Check if it's likely a Perl script
-            let isPerlScript = scriptPath.endsWith('.pl');
-
-            return {
-                scriptPath: scriptPath,
-                scriptName: scriptName,
-                isPerlScript: isPerlScript
-            };
-        }
-
-        // Shell-quote a parameter value for safe inclusion in a crontab command.
-        // Cron expands bare % to newline before the shell sees the line, so those
-        // are always backslash-escaped. Values containing shell word-splitting or
-        // metacharacters are wrapped in single quotes.
-        function shellQuoteValue(value) {
-            if (value === null || value === undefined) return value;
-            let s = String(value);
-            s = s.replace(/%/g, '\\%');
-            if (!/[ \t"'\\$`|&;()<>!*?[\]{}~]/.test(s)) return s;
-            return "'" + s.replace(/'/g, "'\\''") + "'";
-        }
-
-        // Helper function to escape HTML
-        function escapeHtml(text) {
-            let map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-        }
-
-        // View documentation for a script from command
-        function viewScriptDocumentation(command) {
-            let scriptInfo = extractScriptInfo(command);
-
-            if (!scriptInfo.isPerlScript) {
-                showMessage('Documentation is only available for Perl scripts', 'info');
-                return;
+                // Hide spinner and show table
+                $('#system-jobs-loading').hide();
+                $('#system_jobs_table').show();
             }
 
-            // Fetch script details
-            $.ajax({
-                url: '/api/v1/contrib/crontab/scripts/details',
-                method: 'GET',
-                data: { name: scriptInfo.scriptName },
-                success: function(data) {
-                    let podContent = data.usage_text || 'No documentation available.';
-                    $('#pod-viewer-label').text('Documentation: ' + data.name);
-                    $('#pod-content').text(podContent);
-                    $('#podViewerModal').modal('show');
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to load documentation: ' + error, 'danger');
-                }
-            });
-        }
-
-        function showScriptPicker() {
-            // Track the currently selected script so it can be preselected in the picker
-            let currentPath = $('#base-script-path').val();
-            if (!currentPath) {
-                let command = $('#job-command').val();
-                currentPath = command ? command.split(/\s+/)[0] : '';
-            }
-
-            $.ajax({
-                url: '/api/v1/contrib/crontab/scripts',
-                method: 'GET',
-                success: function(data) {
-                    if (data.scripts && data.scripts.length > 0) {
-                        displayScriptPicker(data.scripts, currentPath);
-                    } else {
-                        showMessage('No scripts found in KOHA_CRON_PATH', 'warning');
+            function loadEnvironmentVariables() {
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/crontab/environment',
+                    method: 'GET',
+                    success: function(data) {
+                        populateEnvironmentTable(data.environment);
+                    },
+                    error: function(xhr, status, error) {
+                        showMessage('Failed to load environment variables: ' + error, 'danger');
                     }
-                },
-                error: function(xhr, status, error) {
-                    showMessage('Failed to load scripts: ' + error, 'danger');
+                });
+            }
+
+            function populateEnvironmentTable(environment) {
+                let tbody = $('#env_vars_tbody');
+                tbody.empty();
+
+                if (!environment || Object.keys(environment).length === 0) {
+                    tbody.append('<tr><td colspan="2" class="text-muted text-center">No global environment variables defined</td></tr>');
+                } else {
+                    let count = 0;
+                    Object.keys(environment).sort().forEach(function(key) {
+                        tbody.append(
+                            '<tr>' +
+                            '<td><strong>' + key + '</strong></td>' +
+                            '<td><code>' + environment[key] + '</code></td>' +
+                            '</tr>'
+                        );
+                        count++;
+                    });
+
+                    // Update the collapse button to show count
+                    $('#env-heading button').html(
+                        '<i class="fa fa-list"></i> Global Environment Variables ' +
+                        '<span class="badge bg-info">' + count + '</span> ' +
+                        '<small class="text-muted">(click to expand)</small>'
+                    );
                 }
-            });
-        }
+            }
 
-        function displayScriptPicker(scripts, currentPath) {
-            let pickerHtml = '<div class="list-group mt-2">';
+            function createBackup() {
+                // Trigger download of the latest backup by navigating to the endpoint
+                window.location.href = '/api/v1/contrib/crontab/backup';
 
-            scripts.forEach(function(script) {
-                let isCurrent = currentPath && (script.relative_path === currentPath || script.path === currentPath);
-                let desc = script.description ? '<small class="text-muted">' + script.description + '</small>' : '';
-                pickerHtml += `
-                    <a href="#" class="list-group-item list-group-item-action script-item${isCurrent ? ' active' : ''}"
-                       data-script-name="${script.name}"
-                       data-script-path="${script.relative_path}"
-                       data-script-type="${script.type}">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">${script.name}${isCurrent ? ' <small>(current)</small>' : ''}</h6>
-                            <small class="badge bg-secondary">${script.type}</small>
-                        </div>
-                        ${desc}
-                    </a>
-                `;
-            });
-            pickerHtml += '</div>';
+                // Show message that download has been triggered
+                showMessage('Downloading latest backup...', 'success');
+            }
 
-            // Show in a Bootstrap modal or directly in the form
-            let modalHtml = `
-                <div class="modal fade" id="scriptPickerModal" tabindex="-1">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Select a Script</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            function showMessage(message, type) {
+                let alertClass = 'alert-' + type;
+                let messageHtml = '<div id="message" class="alert ' + alertClass + ' alert-dismissible fade show">' +
+                                  message +
+                                  '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                                  '</div>';
+                $('#message').replaceWith(messageHtml);
+
+                // Auto-hide success messages
+                if (type === 'success') {
+                    setTimeout(function() {
+                        $('#message').fadeOut();
+                    }, 3000);
+                }
+            }
+
+            // Script Picker Functions
+            let currentScriptData = null;
+
+            // Helper function to extract script information from command
+            function extractScriptInfo(command) {
+                if (!command) return { scriptPath: '', scriptName: '', isPerlScript: false };
+
+                // Extract the script path (everything before first space or entire string)
+                let parts = command.trim().split(/\s+/);
+                let scriptPath = parts[0];
+
+                // Extract script name from path
+                let scriptName = scriptPath.split('/').pop();
+
+                // Check if it's likely a Perl script
+                let isPerlScript = scriptPath.endsWith('.pl');
+
+                return {
+                    scriptPath: scriptPath,
+                    scriptName: scriptName,
+                    isPerlScript: isPerlScript
+                };
+            }
+
+            // Shell-quote a parameter value for safe inclusion in a crontab command.
+            // Cron expands bare % to newline before the shell sees the line, so those
+            // are always backslash-escaped. Values containing shell word-splitting or
+            // metacharacters are wrapped in single quotes.
+            function shellQuoteValue(value) {
+                if (value === null || value === undefined) return value;
+                let s = String(value);
+                s = s.replace(/%/g, '\\%');
+                if (!/[ \t"'\\$`|&;()<>!*?[\]{}~]/.test(s)) return s;
+                return "'" + s.replace(/'/g, "'\\''") + "'";
+            }
+
+            // Helper function to escape HTML
+            function escapeHtml(text) {
+                let map = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                };
+                return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            }
+
+            // View documentation for a script from command
+            function viewScriptDocumentation(command) {
+                let scriptInfo = extractScriptInfo(command);
+
+                if (!scriptInfo.isPerlScript) {
+                    showMessage('Documentation is only available for Perl scripts', 'info');
+                    return;
+                }
+
+                // Fetch script details
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/scripts/details',
+                    method: 'GET',
+                    data: { name: scriptInfo.scriptName },
+                    success: function(data) {
+                        let podContent = data.usage_text || 'No documentation available.';
+                        $('#pod-viewer-label').text('Documentation: ' + data.name);
+                        $('#pod-content').text(podContent);
+                        $('#podViewerModal').modal('show');
+                    },
+                    error: function(xhr, status, error) {
+                        showMessage('Failed to load documentation: ' + error, 'danger');
+                    }
+                });
+            }
+
+            function showScriptPicker() {
+                // Track the currently selected script so it can be preselected in the picker
+                let currentPath = $('#base-script-path').val();
+                if (!currentPath) {
+                    let command = $('#job-command').val();
+                    currentPath = command ? command.split(/\s+/)[0] : '';
+                }
+
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/scripts',
+                    method: 'GET',
+                    success: function(data) {
+                        if (data.scripts && data.scripts.length > 0) {
+                            displayScriptPicker(data.scripts, currentPath);
+                        } else {
+                            showMessage('No scripts found in KOHA_CRON_PATH', 'warning');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        showMessage('Failed to load scripts: ' + error, 'danger');
+                    }
+                });
+            }
+
+            function displayScriptPicker(scripts, currentPath) {
+                let pickerHtml = '<div class="list-group mt-2">';
+
+                scripts.forEach(function(script) {
+                    let isCurrent = currentPath && (script.relative_path === currentPath || script.path === currentPath);
+                    let desc = script.description ? '<small class="text-muted">' + script.description + '</small>' : '';
+                    pickerHtml += `
+                        <a href="#" class="list-group-item list-group-item-action script-item${isCurrent ? ' active' : ''}"
+                           data-script-name="${script.name}"
+                           data-script-path="${script.relative_path}"
+                           data-script-type="${script.type}">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">${script.name}${isCurrent ? ' <small>(current)</small>' : ''}</h6>
+                                <small class="badge bg-secondary">${script.type}</small>
                             </div>
-                            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
-                                ${pickerHtml}
+                            ${desc}
+                        </a>
+                    `;
+                });
+                pickerHtml += '</div>';
+
+                // Show in a Bootstrap modal or directly in the form
+                let modalHtml = `
+                    <div class="modal fade" id="scriptPickerModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Select a Script</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                                    ${pickerHtml}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
 
-            // Remove existing modal if any
-            $('#scriptPickerModal').remove();
-            $('body').append(modalHtml);
+                // Remove existing modal if any
+                $('#scriptPickerModal').remove();
+                $('body').append(modalHtml);
 
-            // Bind click handlers
-            $('.script-item').on('click', function(e) {
-                e.preventDefault();
-                let scriptName = $(this).data('script-name');
-                let scriptPath = $(this).data('script-path');
-                let scriptType = $(this).data('script-type');
+                // Bind click handlers
+                $('.script-item').on('click', function(e) {
+                    e.preventDefault();
+                    let scriptName = $(this).data('script-name');
+                    let scriptPath = $(this).data('script-path');
+                    let scriptType = $(this).data('script-type');
 
-                selectScript(scriptName, scriptPath, scriptType);
-                $('#scriptPickerModal').modal('hide');
-            });
-
-            $('#scriptPickerModal').modal('show');
-        }
-
-        function selectScript(scriptName, scriptPath, scriptType) {
-            // Preserve any parameters already present on the command line so that
-            // reselecting the same (or a compatible) script doesn't discard them
-            let previousCommand = $('#job-command').val() || '';
-
-            // Set the command input and track base path
-            $('#job-command').val(scriptPath);
-            $('#base-script-path').val(scriptPath);
-
-            // Load script details if it's a Perl script
-            if (scriptType === 'perl') {
-                loadScriptDetailsAndPopulateParams(scriptName, previousCommand);
-            } else {
-                // For shell scripts, just set the path
-                $('#script-params-container').hide();
-                currentScriptData = null;
-            }
-        }
-
-        function displayScriptOptions(scriptData) {
-            // Show description
-            if (scriptData.description) {
-                $('#script-description').html('<strong>' + scriptData.name + ':</strong> ' + scriptData.description).show();
-            }
-
-            // Show policy hint, if this script has scheduling constraints
-            if (scriptData.policy && (scriptData.policy.non_repeatable || scriptData.policy.allowed_hours)) {
-                let hints = [];
-                if (scriptData.policy.non_repeatable) {
-                    hints.push('this script may only be scheduled once across the crontab');
-                }
-                if (scriptData.policy.allowed_hours) {
-                    hints.push('it may only run during hours: ' + scriptData.policy.allowed_hours);
-                }
-                $('#script-policy-hint').html('<i class="fa fa-exclamation-triangle"></i> ' + hints.join('; ') + '.').show();
-            } else {
-                $('#script-policy-hint').hide();
-            }
-
-            // Build options UI
-            let optionsHtml = '';
-            let hasOptions = scriptData.options && scriptData.options.length > 0;
-            let hasPositional = scriptData.positional_args && scriptData.positional_args.length > 0;
-
-            if (hasOptions) {
-                scriptData.options.forEach(function(option) {
-                    let optionId = 'opt-' + option.name.replace(/[^a-zA-Z0-9]/g, '-');
-                    let shortName = option.short_name ? ' (-' + option.short_name + ')' : '';
-
-                    if (option.type === 'boolean' && !option.negatable) {
-                        // Simple checkbox for boolean options
-                        optionsHtml += `
-                            <div class="form-check mb-2">
-                                <input class="form-check-input script-option" type="checkbox"
-                                       id="${optionId}"
-                                       data-option-name="${option.name}"
-                                       data-option-type="boolean">
-                                <label class="form-check-label" for="${optionId}">
-                                    <code>--${option.name}${shortName}</code>
-                                </label>
-                            </div>
-                        `;
-                    } else if (option.negatable) {
-                        // Negatable boolean: three-state select (unset / --name / --no-name)
-                        optionsHtml += `
-                            <div class="mb-3">
-                                <label for="${optionId}" class="form-label">
-                                    <code>--${option.name}${shortName}</code>
-                                    <small class="text-muted">(negatable)</small>
-                                </label>
-                                <select class="form-control form-control-sm script-option"
-                                        id="${optionId}"
-                                        data-option-name="${option.name}"
-                                        data-option-type="negatable">
-                                    <option value="">-- not set --</option>
-                                    <option value="yes">--${option.name}</option>
-                                    <option value="no">--no-${option.name}</option>
-                                </select>
-                            </div>
-                        `;
-                    } else if (option.type === 'incremental') {
-                        // Incremental: number input (how many times to repeat the flag)
-                        optionsHtml += `
-                            <div class="mb-3">
-                                <label for="${optionId}" class="form-label">
-                                    <code>--${option.name}${shortName}</code>
-                                    <small class="text-muted">(repeatable flag)</small>
-                                </label>
-                                <input type="number" min="0" max="10"
-                                       class="form-control form-control-sm script-option"
-                                       id="${optionId}"
-                                       data-option-name="${option.name}"
-                                       data-option-type="incremental"
-                                       value="0"
-                                       placeholder="Number of times to include">
-                            </div>
-                        `;
-                    } else if (option.repeatable && option.dest_type === 'hash') {
-                        // Hash destination: key=value pair inputs
-                        optionsHtml += `
-                            <div class="mb-3">
-                                <label class="form-label">
-                                    <code>--${option.name}${shortName}</code>
-                                    ${option.required ? '<span class="text-danger">*</span>' : ''}
-                                    <small class="text-muted">(key=value pairs)</small>
-                                </label>
-                                <div class="repeatable-hash-container" id="${optionId}-container"
-                                     data-option-name="${option.name}"
-                                     data-option-type="${option.type}"
-                                     data-dest-type="hash">
-                                    <div class="input-group input-group-sm mb-1 hash-entry">
-                                        <input type="text" class="form-control hash-key" placeholder="key">
-                                        <span class="input-group-text">=</span>
-                                        <input type="text" class="form-control hash-value" placeholder="value">
-                                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
-                                            <i class="fa fa-times"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm add-hash-entry"
-                                        data-target="${optionId}-container">
-                                    <i class="fa fa-plus"></i> Add pair
-                                </button>
-                            </div>
-                        `;
-                    } else if (option.repeatable) {
-                        // Array destination: multiple value inputs
-                        optionsHtml += `
-                            <div class="mb-3">
-                                <label class="form-label">
-                                    <code>--${option.name}${shortName}</code>
-                                    ${option.required ? '<span class="text-danger">*</span>' : ''}
-                                    <small class="text-muted">(repeatable)</small>
-                                </label>
-                                <div class="repeatable-container" id="${optionId}-container"
-                                     data-option-name="${option.name}"
-                                     data-option-type="${option.type}"
-                                     data-dest-type="array">
-                                    <div class="input-group input-group-sm mb-1 repeatable-entry">
-                                        <input type="${option.type === 'integer' ? 'number' : 'text'}"
-                                               class="form-control repeatable-value"
-                                               placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
-                                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
-                                            <i class="fa fa-times"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm add-repeatable-entry"
-                                        data-target="${optionId}-container"
-                                        data-input-type="${option.type === 'integer' ? 'number' : 'text'}"
-                                        data-placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
-                                    <i class="fa fa-plus"></i> Add value
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        // Simple text/number input for scalar string/integer/float options
-                        optionsHtml += `
-                            <div class="mb-3">
-                                <label for="${optionId}" class="form-label">
-                                    <code>--${option.name}${shortName}</code>
-                                    ${option.required ? '<span class="text-danger">*</span>' : ''}
-                                </label>
-                                <input type="${option.type === 'integer' || option.type === 'float' ? 'number' : 'text'}"
-                                       class="form-control form-control-sm script-option"
-                                       id="${optionId}"
-                                       data-option-name="${option.name}"
-                                       data-option-type="${option.type}"
-                                       ${option.type === 'float' ? 'step="any"' : ''}
-                                       placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
-                            </div>
-                        `;
-                    }
+                    selectScript(scriptName, scriptPath, scriptType);
+                    $('#scriptPickerModal').modal('hide');
                 });
+
+                $('#scriptPickerModal').modal('show');
             }
 
-            // Positional arguments section
-            if (hasPositional) {
-                optionsHtml += '<hr><h6 class="text-muted"><i class="fa fa-list-ol"></i> Positional Arguments</h6>';
-                optionsHtml += '<p class="text-muted small">These arguments are passed directly (without --flags) and are position-dependent.</p>';
+            function selectScript(scriptName, scriptPath, scriptType) {
+                // Preserve any parameters already present on the command line so that
+                // reselecting the same (or a compatible) script doesn't discard them
+                let previousCommand = $('#job-command').val() || '';
 
-                scriptData.positional_args.forEach(function(arg) {
-                    let argId = 'pos-arg-' + arg.position;
+                // Set the command input and track base path
+                $('#job-command').val(scriptPath);
+                $('#base-script-path').val(scriptPath);
 
-                    if (arg.variadic) {
-                        // Variable-length positional args
-                        optionsHtml += `
-                            <div class="mb-3">
-                                <label class="form-label">
-                                    <code>${arg.label}</code>
-                                    ${arg.required ? '<span class="text-danger">*</span>' : ''}
-                                    <small class="text-muted">(one or more values)</small>
-                                </label>
-                                <div class="repeatable-container positional-variadic" id="${argId}-container"
-                                     data-position="${arg.position}" data-variadic="true">
-                                    <div class="input-group input-group-sm mb-1 repeatable-entry">
-                                        <input type="text" class="form-control repeatable-value positional-arg"
-                                               placeholder="Enter value"
-                                               data-position="${arg.position}">
-                                        <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
-                                            <i class="fa fa-times"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm add-repeatable-entry"
-                                        data-target="${argId}-container"
-                                        data-input-type="text"
-                                        data-placeholder="Enter value">
-                                    <i class="fa fa-plus"></i> Add value
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        optionsHtml += `
-                            <div class="mb-3">
-                                <label for="${argId}" class="form-label">
-                                    <code>${arg.label}</code>
-                                    ${arg.required ? '<span class="text-danger">*</span>' : ''}
-                                    <small class="text-muted">(position ${arg.position + 1})</small>
-                                </label>
-                                <input type="text"
-                                       class="form-control form-control-sm positional-arg"
-                                       id="${argId}"
-                                       data-position="${arg.position}"
-                                       placeholder="Enter value">
-                            </div>
-                        `;
-                    }
-                });
-            }
-
-            if (!hasOptions && !hasPositional) {
-                optionsHtml = '<p class="text-muted">No documented options or arguments detected for this script.</p>';
-            }
-
-            $('#script-options').html(optionsHtml);
-            $('#script-params-container').show();
-        }
-
-        function showPodViewer() {
-            if (!currentScriptData) {
-                showMessage('No script selected', 'warning');
-                return;
-            }
-
-            // Get the formatted usage text from pod2usage
-            let podContent = currentScriptData.usage_text || 'No documentation available.';
-
-            // Set modal title with script name
-            $('#pod-viewer-label').text('Documentation: ' + currentScriptData.name);
-
-            // Display the POD content (preformatted text preserves formatting)
-            $('#pod-content').text(podContent);
-
-            // Show the modal
-            $('#podViewerModal').modal('show');
-        }
-
-        function buildCommandFromParams(silent) {
-            let basePath = $('#base-script-path').val();
-            if (!basePath) {
-                if (!silent) {
-                    showMessage('Please select a script first', 'warning');
-                }
-                return false;
-            }
-
-            let params = [];
-
-            // Process simple scalar options (boolean, string, integer, float, negatable, incremental)
-            $('.script-option').each(function() {
-                let $input = $(this);
-                let optionName = $input.data('option-name');
-                let optionType = $input.data('option-type');
-
-                if (optionType === 'boolean') {
-                    if ($input.is(':checked')) {
-                        params.push('--' + optionName);
-                    }
-                } else if (optionType === 'negatable') {
-                    let val = $input.val();
-                    if (val === 'yes') {
-                        params.push('--' + optionName);
-                    } else if (val === 'no') {
-                        params.push('--no-' + optionName);
-                    }
-                } else if (optionType === 'incremental') {
-                    let count = parseInt($input.val()) || 0;
-                    for (let i = 0; i < count; i++) {
-                        params.push('--' + optionName);
-                    }
+                // Load script details if it's a Perl script
+                if (scriptType === 'perl') {
+                    loadScriptDetailsAndPopulateParams(scriptName, previousCommand);
                 } else {
-                    let value = $input.val();
-                    if (value && value.trim() !== '') {
-                        params.push('--' + optionName + '=' + shellQuoteValue(value.trim()));
-                    }
-                }
-            });
-
-            // Process repeatable array options
-            $('.repeatable-container[data-dest-type="array"]').each(function() {
-                let optionName = $(this).data('option-name');
-                $(this).find('.repeatable-value').each(function() {
-                    let value = $(this).val();
-                    if (value && value.trim() !== '') {
-                        params.push('--' + optionName + '=' + shellQuoteValue(value.trim()));
-                    }
-                });
-            });
-
-            // Process repeatable hash options
-            $('.repeatable-hash-container[data-dest-type="hash"]').each(function() {
-                let optionName = $(this).data('option-name');
-                $(this).find('.hash-entry').each(function() {
-                    let key = $(this).find('.hash-key').val();
-                    let value = $(this).find('.hash-value').val();
-                    if (key && key.trim() !== '') {
-                        let pair = key.trim() + '=' + (value ? value.trim() : '');
-                        params.push('--' + optionName + '=' + pair);
-                    }
-                });
-            });
-
-            let missingRequired = (currentScriptData && currentScriptData.options ? currentScriptData.options : [])
-                .filter(function(option) { return option.required; })
-                .filter(function(option) {
-                    let prefix = '--' + option.name;
-                    if (option.negatable) {
-                        // For negatable options, either --name or --no-name counts as present
-                        return !params.some(function(p) { return p === prefix || p === '--no-' + option.name; });
-                    } else {
-                        // For other options, --name or --name=value counts as present
-                        return !params.some(function(p) { return p === prefix || p.indexOf(prefix + '=') === 0; });
-                    }
-                });
-
-            if (missingRequired.length > 0) {
-                let names = missingRequired.map(function(o) { return '--' + o.name; }).join(', ');
-                showMessage('Missing required option(s): ' + names, 'danger');
-                return false;
-            }
-
-            let fullCommand = basePath;
-            if (params.length > 0) {
-                fullCommand += ' ' + params.join(' ');
-            }
-
-            // Process positional arguments (appended after flags)
-            let positionalValues = [];
-            // Fixed positional args (ordered by position)
-            let fixedArgs = [];
-            $('.positional-arg').not('.repeatable-container .positional-arg').each(function() {
-                let position = parseInt($(this).data('position'));
-                let value = $(this).val();
-                if (value && value.trim() !== '') {
-                    fixedArgs[position] = value.trim();
-                }
-            });
-            // Fill in fixed args in order
-            for (let i = 0; i < fixedArgs.length; i++) {
-                if (fixedArgs[i]) {
-                    positionalValues.push(shellQuoteValue(fixedArgs[i]));
-                }
-            }
-            // Variadic positional args
-            $('.positional-variadic .repeatable-value').each(function() {
-                let value = $(this).val();
-                if (value && value.trim() !== '') {
-                    positionalValues.push(shellQuoteValue(value.trim()));
-                }
-            });
-
-            let requiredPositional = (currentScriptData && currentScriptData.positional_args ? currentScriptData.positional_args : [])
-                .filter(function(arg) { return arg.required && arg.min; })
-                .filter(function(arg) { return positionalValues.length < arg.min; });
-
-            if (requiredPositional.length > 0) {
-                let arg = requiredPositional[0];
-                showMessage('At least ' + arg.min + ' ' + (arg.name || 'argument') + (arg.min == 1 ? '' : 's') + ' required', 'danger');
-                return false;
-            }
-
-            if (positionalValues.length > 0) {
-                fullCommand += ' ' + positionalValues.join(' ');
-            }
-
-            $('#job-command').val(fullCommand);
-            if (!silent) {
-                showMessage('Command built successfully', 'success');
-            }
-            return true;
-        }
-
-        function loadScriptDetailsAndPopulateParams(scriptName, command) {
-            $.ajax({
-                url: '/api/v1/contrib/crontab/scripts/details',
-                method: 'GET',
-                data: { name: scriptName },
-                success: function(data) {
-                    currentScriptData = data;
-                    displayScriptOptions(data);
-
-                    // Parse existing command parameters
-                    let params = parseCommandParameters(command);
-
-                    // Populate parameter inputs with existing values
-                    populateScriptParameters(params);
-                },
-                error: function(xhr, status, error) {
-                    // Silent failure - user can still manually edit command
-                    console.error('Failed to load script details:', error);
-                }
-            });
-        }
-
-        function parseCommandParameters(command) {
-            // Extract parameters from command
-            // Returns: { flags: {name: value|true|[values]}, positional: [values] }
-            let result = { flags: {}, positional: [] };
-
-            // Split command by spaces, but preserve values with spaces in quotes
-            let parts = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
-
-            // Skip first part (script path)
-            for (let i = 1; i < parts.length; i++) {
-                let part = parts[i];
-
-                // Handle --option=value or --option format (including --no-option)
-                if (part.startsWith('--')) {
-                    let match = part.match(/^--([^=]+)(?:=(.*))?$/);
-                    if (match) {
-                        let name = match[1]; // Raw name including "no-" prefix if present
-                        let value = match[2] !== undefined ? match[2] : true;
-
-                        // Remove quotes if present
-                        if (typeof value === 'string') {
-                            value = value.replace(/^["']|["']$/g, '');
-                        }
-
-                        if (result.flags.hasOwnProperty(name)) {
-                            // Repeated option: collect into array
-                            let existing = result.flags[name];
-                            if (Array.isArray(existing)) {
-                                existing.push(value);
-                            } else {
-                                result.flags[name] = [existing, value];
-                            }
-                        } else {
-                            result.flags[name] = value;
-                        }
-                    }
-                }
-                // Handle -x format (short options)
-                else if (part.startsWith('-') && !part.startsWith('--')) {
-                    // Map short options to long names if possible
-                    if (currentScriptData && currentScriptData.options) {
-                        let shortFlag = part.substring(1);
-                        let matched = currentScriptData.options.find(o => o.short_name === shortFlag);
-                        if (matched) {
-                            result.flags[matched.name] = true;
-                        }
-                    }
-                }
-                // Positional argument (no leading -)
-                else {
-                    let value = part.replace(/^["']|["']$/g, '');
-                    result.positional.push(value);
+                    // For shell scripts, just set the path
+                    $('#script-params-container').hide();
+                    currentScriptData = null;
                 }
             }
 
-            return result;
-        }
-
-        function populateScriptParameters(parsed) {
-            let params = parsed.flags || parsed;
-            let positional = parsed.positional || [];
-
-            // Populate scalar options
-            $('.script-option').each(function() {
-                let $input = $(this);
-                let optionName = $input.data('option-name');
-                let optionType = $input.data('option-type');
-
-                if (optionType === 'negatable') {
-                    // For negatable options, check both --name and --no-name
-                    if (params.hasOwnProperty(optionName)) {
-                        $input.val('yes');
-                    } else if (params.hasOwnProperty('no-' + optionName)) {
-                        $input.val('no');
-                    }
-                } else if (params.hasOwnProperty(optionName)) {
-                    let value = params[optionName];
-
-                    if (optionType === 'boolean') {
-                        $input.prop('checked', !!value);
-                    } else if (optionType === 'incremental') {
-                        // Count how many times the flag appears
-                        if (Array.isArray(value)) {
-                            $input.val(value.length);
-                        } else if (value === true) {
-                            $input.val(1);
-                        }
-                    } else {
-                        // Simple scalar value
-                        if (!Array.isArray(value)) {
-                            $input.val(value);
-                        }
-                    }
+            function displayScriptOptions(scriptData) {
+                // Show description
+                if (scriptData.description) {
+                    $('#script-description').html('<strong>' + scriptData.name + ':</strong> ' + scriptData.description).show();
                 }
-            });
 
-            // Populate repeatable array options
-            $('.repeatable-container[data-dest-type="array"]').each(function() {
-                let $container = $(this);
-                let optionName = $container.data('option-name');
-
-                if (params.hasOwnProperty(optionName)) {
-                    let values = params[optionName];
-                    if (!Array.isArray(values)) {
-                        values = [values];
+                // Show policy hint, if this script has scheduling constraints
+                if (scriptData.policy && (scriptData.policy.non_repeatable || scriptData.policy.allowed_hours)) {
+                    let hints = [];
+                    if (scriptData.policy.non_repeatable) {
+                        hints.push('this script may only be scheduled once across the crontab');
                     }
+                    if (scriptData.policy.allowed_hours) {
+                        hints.push('it may only run during hours: ' + scriptData.policy.allowed_hours);
+                    }
+                    $('#script-policy-hint').html('<i class="fa fa-exclamation-triangle"></i> ' + hints.join('; ') + '.').show();
+                } else {
+                    $('#script-policy-hint').hide();
+                }
 
-                    // Set first value in existing entry
-                    let $entries = $container.find('.repeatable-entry');
-                    values.forEach(function(val, idx) {
-                        if (idx === 0) {
-                            $entries.first().find('.repeatable-value').val(val === true ? '' : val);
-                        } else {
-                            // Add new entries for additional values
-                            let entryHtml = `
-                                <div class="input-group input-group-sm mb-1 repeatable-entry">
-                                    <input type="text" class="form-control repeatable-value"
-                                           value="${escapeHtml(String(val === true ? '' : val))}"
-                                           placeholder="Enter value">
-                                    <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
-                                        <i class="fa fa-times"></i>
+                // Build options UI
+                let optionsHtml = '';
+                let hasOptions = scriptData.options && scriptData.options.length > 0;
+                let hasPositional = scriptData.positional_args && scriptData.positional_args.length > 0;
+
+                if (hasOptions) {
+                    scriptData.options.forEach(function(option) {
+                        let optionId = 'opt-' + option.name.replace(/[^a-zA-Z0-9]/g, '-');
+                        let shortName = option.short_name ? ' (-' + option.short_name + ')' : '';
+
+                        if (option.type === 'boolean' && !option.negatable) {
+                            // Simple checkbox for boolean options
+                            optionsHtml += `
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input script-option" type="checkbox"
+                                           id="${optionId}"
+                                           data-option-name="${option.name}"
+                                           data-option-type="boolean">
+                                    <label class="form-check-label" for="${optionId}">
+                                        <code>--${option.name}${shortName}</code>
+                                    </label>
+                                </div>
+                            `;
+                        } else if (option.negatable) {
+                            // Negatable boolean: three-state select (unset / --name / --no-name)
+                            optionsHtml += `
+                                <div class="mb-3">
+                                    <label for="${optionId}" class="form-label">
+                                        <code>--${option.name}${shortName}</code>
+                                        <small class="text-muted">(negatable)</small>
+                                    </label>
+                                    <select class="form-control form-control-sm script-option"
+                                            id="${optionId}"
+                                            data-option-name="${option.name}"
+                                            data-option-type="negatable">
+                                        <option value="">-- not set --</option>
+                                        <option value="yes">--${option.name}</option>
+                                        <option value="no">--no-${option.name}</option>
+                                    </select>
+                                </div>
+                            `;
+                        } else if (option.type === 'incremental') {
+                            // Incremental: number input (how many times to repeat the flag)
+                            optionsHtml += `
+                                <div class="mb-3">
+                                    <label for="${optionId}" class="form-label">
+                                        <code>--${option.name}${shortName}</code>
+                                        <small class="text-muted">(repeatable flag)</small>
+                                    </label>
+                                    <input type="number" min="0" max="10"
+                                           class="form-control form-control-sm script-option"
+                                           id="${optionId}"
+                                           data-option-name="${option.name}"
+                                           data-option-type="incremental"
+                                           value="0"
+                                           placeholder="Number of times to include">
+                                </div>
+                            `;
+                        } else if (option.repeatable && option.dest_type === 'hash') {
+                            // Hash destination: key=value pair inputs
+                            optionsHtml += `
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <code>--${option.name}${shortName}</code>
+                                        ${option.required ? '<span class="text-danger">*</span>' : ''}
+                                        <small class="text-muted">(key=value pairs)</small>
+                                    </label>
+                                    <div class="repeatable-hash-container" id="${optionId}-container"
+                                         data-option-name="${option.name}"
+                                         data-option-type="${option.type}"
+                                         data-dest-type="hash">
+                                        <div class="input-group input-group-sm mb-1 hash-entry">
+                                            <input type="text" class="form-control hash-key" placeholder="key">
+                                            <span class="input-group-text">=</span>
+                                            <input type="text" class="form-control hash-value" placeholder="value">
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm add-hash-entry"
+                                            data-target="${optionId}-container">
+                                        <i class="fa fa-plus"></i> Add pair
                                     </button>
                                 </div>
                             `;
-                            $container.append(entryHtml);
+                        } else if (option.repeatable) {
+                            // Array destination: multiple value inputs
+                            optionsHtml += `
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <code>--${option.name}${shortName}</code>
+                                        ${option.required ? '<span class="text-danger">*</span>' : ''}
+                                        <small class="text-muted">(repeatable)</small>
+                                    </label>
+                                    <div class="repeatable-container" id="${optionId}-container"
+                                         data-option-name="${option.name}"
+                                         data-option-type="${option.type}"
+                                         data-dest-type="array">
+                                        <div class="input-group input-group-sm mb-1 repeatable-entry">
+                                            <input type="${option.type === 'integer' ? 'number' : 'text'}"
+                                                   class="form-control repeatable-value"
+                                                   placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm add-repeatable-entry"
+                                            data-target="${optionId}-container"
+                                            data-input-type="${option.type === 'integer' ? 'number' : 'text'}"
+                                            data-placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
+                                        <i class="fa fa-plus"></i> Add value
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            // Simple text/number input for scalar string/integer/float options
+                            optionsHtml += `
+                                <div class="mb-3">
+                                    <label for="${optionId}" class="form-label">
+                                        <code>--${option.name}${shortName}</code>
+                                        ${option.required ? '<span class="text-danger">*</span>' : ''}
+                                    </label>
+                                    <input type="${option.type === 'integer' || option.type === 'float' ? 'number' : 'text'}"
+                                           class="form-control form-control-sm script-option"
+                                           id="${optionId}"
+                                           data-option-name="${option.name}"
+                                           data-option-type="${option.type}"
+                                           ${option.type === 'float' ? 'step="any"' : ''}
+                                           placeholder="${option.type === 'string' ? 'Enter value' : 'Enter number'}">
+                                </div>
+                            `;
                         }
                     });
                 }
-            });
 
-            // Populate repeatable hash options
-            $('.repeatable-hash-container[data-dest-type="hash"]').each(function() {
-                let $container = $(this);
-                let optionName = $container.data('option-name');
+                // Positional arguments section
+                if (hasPositional) {
+                    optionsHtml += '<hr><h6 class="text-muted"><i class="fa fa-list-ol"></i> Positional Arguments</h6>';
+                    optionsHtml += '<p class="text-muted small">These arguments are passed directly (without --flags) and are position-dependent.</p>';
 
-                if (params.hasOwnProperty(optionName)) {
-                    let values = params[optionName];
-                    if (!Array.isArray(values)) {
-                        values = [values];
+                    scriptData.positional_args.forEach(function(arg) {
+                        let argId = 'pos-arg-' + arg.position;
+
+                        if (arg.variadic) {
+                            // Variable-length positional args
+                            optionsHtml += `
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <code>${arg.label}</code>
+                                        ${arg.required ? '<span class="text-danger">*</span>' : ''}
+                                        <small class="text-muted">(one or more values)</small>
+                                    </label>
+                                    <div class="repeatable-container positional-variadic" id="${argId}-container"
+                                         data-position="${arg.position}" data-variadic="true">
+                                        <div class="input-group input-group-sm mb-1 repeatable-entry">
+                                            <input type="text" class="form-control repeatable-value positional-arg"
+                                                   placeholder="Enter value"
+                                                   data-position="${arg.position}">
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm add-repeatable-entry"
+                                            data-target="${argId}-container"
+                                            data-input-type="text"
+                                            data-placeholder="Enter value">
+                                        <i class="fa fa-plus"></i> Add value
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            optionsHtml += `
+                                <div class="mb-3">
+                                    <label for="${argId}" class="form-label">
+                                        <code>${arg.label}</code>
+                                        ${arg.required ? '<span class="text-danger">*</span>' : ''}
+                                        <small class="text-muted">(position ${arg.position + 1})</small>
+                                    </label>
+                                    <input type="text"
+                                           class="form-control form-control-sm positional-arg"
+                                           id="${argId}"
+                                           data-position="${arg.position}"
+                                           placeholder="Enter value">
+                                </div>
+                            `;
+                        }
+                    });
+                }
+
+                if (!hasOptions && !hasPositional) {
+                    optionsHtml = '<p class="text-muted">No documented options or arguments detected for this script.</p>';
+                }
+
+                $('#script-options').html(optionsHtml);
+                $('#script-params-container').show();
+            }
+
+            function showPodViewer() {
+                if (!currentScriptData) {
+                    showMessage('No script selected', 'warning');
+                    return;
+                }
+
+                // Get the formatted usage text from pod2usage
+                let podContent = currentScriptData.usage_text || 'No documentation available.';
+
+                // Set modal title with script name
+                $('#pod-viewer-label').text('Documentation: ' + currentScriptData.name);
+
+                // Display the POD content (preformatted text preserves formatting)
+                $('#pod-content').text(podContent);
+
+                // Show the modal
+                $('#podViewerModal').modal('show');
+            }
+
+            function buildCommandFromParams(silent) {
+                let basePath = $('#base-script-path').val();
+                if (!basePath) {
+                    if (!silent) {
+                        showMessage('Please select a script first', 'warning');
                     }
+                    return false;
+                }
 
-                    let $entries = $container.find('.hash-entry');
-                    values.forEach(function(val, idx) {
-                        if (typeof val === 'string' && val.indexOf('=') !== -1) {
-                            let kv = val.split('=');
-                            let key = kv[0];
-                            let value = kv.slice(1).join('=');
+                let params = [];
 
-                            if (idx === 0) {
-                                $entries.first().find('.hash-key').val(key);
-                                $entries.first().find('.hash-value').val(value);
+                // Process simple scalar options (boolean, string, integer, float, negatable, incremental)
+                $('.script-option').each(function() {
+                    let $input = $(this);
+                    let optionName = $input.data('option-name');
+                    let optionType = $input.data('option-type');
+
+                    if (optionType === 'boolean') {
+                        if ($input.is(':checked')) {
+                            params.push('--' + optionName);
+                        }
+                    } else if (optionType === 'negatable') {
+                        let val = $input.val();
+                        if (val === 'yes') {
+                            params.push('--' + optionName);
+                        } else if (val === 'no') {
+                            params.push('--no-' + optionName);
+                        }
+                    } else if (optionType === 'incremental') {
+                        let count = parseInt($input.val()) || 0;
+                        for (let i = 0; i < count; i++) {
+                            params.push('--' + optionName);
+                        }
+                    } else {
+                        let value = $input.val();
+                        if (value && value.trim() !== '') {
+                            params.push('--' + optionName + '=' + shellQuoteValue(value.trim()));
+                        }
+                    }
+                });
+
+                // Process repeatable array options
+                $('.repeatable-container[data-dest-type="array"]').each(function() {
+                    let optionName = $(this).data('option-name');
+                    $(this).find('.repeatable-value').each(function() {
+                        let value = $(this).val();
+                        if (value && value.trim() !== '') {
+                            params.push('--' + optionName + '=' + shellQuoteValue(value.trim()));
+                        }
+                    });
+                });
+
+                // Process repeatable hash options
+                $('.repeatable-hash-container[data-dest-type="hash"]').each(function() {
+                    let optionName = $(this).data('option-name');
+                    $(this).find('.hash-entry').each(function() {
+                        let key = $(this).find('.hash-key').val();
+                        let value = $(this).find('.hash-value').val();
+                        if (key && key.trim() !== '') {
+                            let pair = key.trim() + '=' + (value ? value.trim() : '');
+                            params.push('--' + optionName + '=' + pair);
+                        }
+                    });
+                });
+
+                let missingRequired = (currentScriptData && currentScriptData.options ? currentScriptData.options : [])
+                    .filter(function(option) { return option.required; })
+                    .filter(function(option) {
+                        let prefix = '--' + option.name;
+                        if (option.negatable) {
+                            // For negatable options, either --name or --no-name counts as present
+                            return !params.some(function(p) { return p === prefix || p === '--no-' + option.name; });
+                        } else {
+                            // For other options, --name or --name=value counts as present
+                            return !params.some(function(p) { return p === prefix || p.indexOf(prefix + '=') === 0; });
+                        }
+                    });
+
+                if (missingRequired.length > 0) {
+                    let names = missingRequired.map(function(o) { return '--' + o.name; }).join(', ');
+                    showMessage('Missing required option(s): ' + names, 'danger');
+                    return false;
+                }
+
+                let fullCommand = basePath;
+                if (params.length > 0) {
+                    fullCommand += ' ' + params.join(' ');
+                }
+
+                // Process positional arguments (appended after flags)
+                let positionalValues = [];
+                // Fixed positional args (ordered by position)
+                let fixedArgs = [];
+                $('.positional-arg').not('.repeatable-container .positional-arg').each(function() {
+                    let position = parseInt($(this).data('position'));
+                    let value = $(this).val();
+                    if (value && value.trim() !== '') {
+                        fixedArgs[position] = value.trim();
+                    }
+                });
+                // Fill in fixed args in order
+                for (let i = 0; i < fixedArgs.length; i++) {
+                    if (fixedArgs[i]) {
+                        positionalValues.push(shellQuoteValue(fixedArgs[i]));
+                    }
+                }
+                // Variadic positional args
+                $('.positional-variadic .repeatable-value').each(function() {
+                    let value = $(this).val();
+                    if (value && value.trim() !== '') {
+                        positionalValues.push(shellQuoteValue(value.trim()));
+                    }
+                });
+
+                let requiredPositional = (currentScriptData && currentScriptData.positional_args ? currentScriptData.positional_args : [])
+                    .filter(function(arg) { return arg.required && arg.min; })
+                    .filter(function(arg) { return positionalValues.length < arg.min; });
+
+                if (requiredPositional.length > 0) {
+                    let arg = requiredPositional[0];
+                    showMessage('At least ' + arg.min + ' ' + (arg.name || 'argument') + (arg.min == 1 ? '' : 's') + ' required', 'danger');
+                    return false;
+                }
+
+                if (positionalValues.length > 0) {
+                    fullCommand += ' ' + positionalValues.join(' ');
+                }
+
+                $('#job-command').val(fullCommand);
+                if (!silent) {
+                    showMessage('Command built successfully', 'success');
+                }
+                return true;
+            }
+
+            function loadScriptDetailsAndPopulateParams(scriptName, command) {
+                $.ajax({
+                    url: '/api/v1/contrib/crontab/scripts/details',
+                    method: 'GET',
+                    data: { name: scriptName },
+                    success: function(data) {
+                        currentScriptData = data;
+                        displayScriptOptions(data);
+
+                        // Parse existing command parameters
+                        let params = parseCommandParameters(command);
+
+                        // Populate parameter inputs with existing values
+                        populateScriptParameters(params);
+                    },
+                    error: function(xhr, status, error) {
+                        // Silent failure - user can still manually edit command
+                        console.error('Failed to load script details:', error);
+                    }
+                });
+            }
+
+            function parseCommandParameters(command) {
+                // Extract parameters from command
+                // Returns: { flags: {name: value|true|[values]}, positional: [values] }
+                let result = { flags: {}, positional: [] };
+
+                // Split command by spaces, but preserve values with spaces in quotes
+                let parts = command.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+
+                // Skip first part (script path)
+                for (let i = 1; i < parts.length; i++) {
+                    let part = parts[i];
+
+                    // Handle --option=value or --option format (including --no-option)
+                    if (part.startsWith('--')) {
+                        let match = part.match(/^--([^=]+)(?:=(.*))?$/);
+                        if (match) {
+                            let name = match[1]; // Raw name including "no-" prefix if present
+                            let value = match[2] !== undefined ? match[2] : true;
+
+                            // Remove quotes if present
+                            if (typeof value === 'string') {
+                                value = value.replace(/^["']|["']$/g, '');
+                            }
+
+                            if (result.flags.hasOwnProperty(name)) {
+                                // Repeated option: collect into array
+                                let existing = result.flags[name];
+                                if (Array.isArray(existing)) {
+                                    existing.push(value);
+                                } else {
+                                    result.flags[name] = [existing, value];
+                                }
                             } else {
+                                result.flags[name] = value;
+                            }
+                        }
+                    }
+                    // Handle -x format (short options)
+                    else if (part.startsWith('-') && !part.startsWith('--')) {
+                        // Map short options to long names if possible
+                        if (currentScriptData && currentScriptData.options) {
+                            let shortFlag = part.substring(1);
+                            let matched = currentScriptData.options.find(o => o.short_name === shortFlag);
+                            if (matched) {
+                                result.flags[matched.name] = true;
+                            }
+                        }
+                    }
+                    // Positional argument (no leading -)
+                    else {
+                        let value = part.replace(/^["']|["']$/g, '');
+                        result.positional.push(value);
+                    }
+                }
+
+                return result;
+            }
+
+            function populateScriptParameters(parsed) {
+                let params = parsed.flags || parsed;
+                let positional = parsed.positional || [];
+
+                // Populate scalar options
+                $('.script-option').each(function() {
+                    let $input = $(this);
+                    let optionName = $input.data('option-name');
+                    let optionType = $input.data('option-type');
+
+                    if (optionType === 'negatable') {
+                        // For negatable options, check both --name and --no-name
+                        if (params.hasOwnProperty(optionName)) {
+                            $input.val('yes');
+                        } else if (params.hasOwnProperty('no-' + optionName)) {
+                            $input.val('no');
+                        }
+                    } else if (params.hasOwnProperty(optionName)) {
+                        let value = params[optionName];
+
+                        if (optionType === 'boolean') {
+                            $input.prop('checked', !!value);
+                        } else if (optionType === 'incremental') {
+                            // Count how many times the flag appears
+                            if (Array.isArray(value)) {
+                                $input.val(value.length);
+                            } else if (value === true) {
+                                $input.val(1);
+                            }
+                        } else {
+                            // Simple scalar value
+                            if (!Array.isArray(value)) {
+                                $input.val(value);
+                            }
+                        }
+                    }
+                });
+
+                // Populate repeatable array options
+                $('.repeatable-container[data-dest-type="array"]').each(function() {
+                    let $container = $(this);
+                    let optionName = $container.data('option-name');
+
+                    if (params.hasOwnProperty(optionName)) {
+                        let values = params[optionName];
+                        if (!Array.isArray(values)) {
+                            values = [values];
+                        }
+
+                        // Set first value in existing entry
+                        let $entries = $container.find('.repeatable-entry');
+                        values.forEach(function(val, idx) {
+                            if (idx === 0) {
+                                $entries.first().find('.repeatable-value').val(val === true ? '' : val);
+                            } else {
+                                // Add new entries for additional values
                                 let entryHtml = `
-                                    <div class="input-group input-group-sm mb-1 hash-entry">
-                                        <input type="text" class="form-control hash-key" placeholder="key" value="${escapeHtml(key)}">
-                                        <span class="input-group-text">=</span>
-                                        <input type="text" class="form-control hash-value" placeholder="value" value="${escapeHtml(value)}">
+                                    <div class="input-group input-group-sm mb-1 repeatable-entry">
+                                        <input type="text" class="form-control repeatable-value"
+                                               value="${escapeHtml(String(val === true ? '' : val))}"
+                                               placeholder="Enter value">
                                         <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
                                             <i class="fa fa-times"></i>
                                         </button>
@@ -1783,38 +1737,37 @@
                                 `;
                                 $container.append(entryHtml);
                             }
-                        }
-                    });
-                }
-            });
-
-            // Populate positional arguments
-            if (positional.length > 0) {
-                let $fixedArgs = $('.positional-arg').not('.repeatable-container .positional-arg');
-                $fixedArgs.each(function() {
-                    let pos = parseInt($(this).data('position'));
-                    if (pos < positional.length) {
-                        $(this).val(positional[pos]);
+                        });
                     }
                 });
 
-                // Handle variadic args (remaining positional values after fixed positions)
-                let fixedCount = $fixedArgs.length;
-                let remainingPositional = positional.slice(fixedCount);
-                if (remainingPositional.length > 0) {
-                    let $variadic = $('.positional-variadic');
-                    if ($variadic.length > 0) {
-                        $variadic.each(function() {
-                            let $container = $(this);
-                            remainingPositional.forEach(function(val, idx) {
+                // Populate repeatable hash options
+                $('.repeatable-hash-container[data-dest-type="hash"]').each(function() {
+                    let $container = $(this);
+                    let optionName = $container.data('option-name');
+
+                    if (params.hasOwnProperty(optionName)) {
+                        let values = params[optionName];
+                        if (!Array.isArray(values)) {
+                            values = [values];
+                        }
+
+                        let $entries = $container.find('.hash-entry');
+                        values.forEach(function(val, idx) {
+                            if (typeof val === 'string' && val.indexOf('=') !== -1) {
+                                let kv = val.split('=');
+                                let key = kv[0];
+                                let value = kv.slice(1).join('=');
+
                                 if (idx === 0) {
-                                    $container.find('.repeatable-value').first().val(val);
+                                    $entries.first().find('.hash-key').val(key);
+                                    $entries.first().find('.hash-value').val(value);
                                 } else {
                                     let entryHtml = `
-                                        <div class="input-group input-group-sm mb-1 repeatable-entry">
-                                            <input type="text" class="form-control repeatable-value positional-arg"
-                                                   value="${escapeHtml(val)}"
-                                                   placeholder="Enter value">
+                                        <div class="input-group input-group-sm mb-1 hash-entry">
+                                            <input type="text" class="form-control hash-key" placeholder="key" value="${escapeHtml(key)}">
+                                            <span class="input-group-text">=</span>
+                                            <input type="text" class="form-control hash-value" placeholder="value" value="${escapeHtml(value)}">
                                             <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
                                                 <i class="fa fa-times"></i>
                                             </button>
@@ -1822,13 +1775,52 @@
                                     `;
                                     $container.append(entryHtml);
                                 }
-                            });
+                            }
                         });
+                    }
+                });
+
+                // Populate positional arguments
+                if (positional.length > 0) {
+                    let $fixedArgs = $('.positional-arg').not('.repeatable-container .positional-arg');
+                    $fixedArgs.each(function() {
+                        let pos = parseInt($(this).data('position'));
+                        if (pos < positional.length) {
+                            $(this).val(positional[pos]);
+                        }
+                    });
+
+                    // Handle variadic args (remaining positional values after fixed positions)
+                    let fixedCount = $fixedArgs.length;
+                    let remainingPositional = positional.slice(fixedCount);
+                    if (remainingPositional.length > 0) {
+                        let $variadic = $('.positional-variadic');
+                        if ($variadic.length > 0) {
+                            $variadic.each(function() {
+                                let $container = $(this);
+                                remainingPositional.forEach(function(val, idx) {
+                                    if (idx === 0) {
+                                        $container.find('.repeatable-value').first().val(val);
+                                    } else {
+                                        let entryHtml = `
+                                            <div class="input-group input-group-sm mb-1 repeatable-entry">
+                                                <input type="text" class="form-control repeatable-value positional-arg"
+                                                       value="${escapeHtml(val)}"
+                                                       placeholder="Enter value">
+                                                <button type="button" class="btn btn-outline-danger btn-sm remove-repeatable-entry">
+                                                    <i class="fa fa-times"></i>
+                                                </button>
+                                            </div>
+                                        `;
+                                        $container.append(entryHtml);
+                                    }
+                                });
+                            });
+                        }
                     }
                 }
             }
-        }
-    </script>
+        });
+    });
+</script>
 [% END %]
-
-[% INCLUDE 'intranet-bottom.inc' %]
