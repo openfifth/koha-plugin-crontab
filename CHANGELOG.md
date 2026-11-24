@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-24
+
 ### Added
 
 - **Versions tab: browse, compare and restore earlier versions of the crontab.** Every change the plugin makes keeps the crontab as it was before and after as a backup; these are now listed as versions (newest first, with job counts), can be compared with the current crontab as a line diff, and can be restored. A restore replaces the whole crontab, so it is held to the same rules as adding or enabling a job: a version containing a plugin-managed job that could not be saved today (script no longer in the policy, unsupported shell syntax, missing required option, non-repeatable duplicate, a job-level environment variable that no longer exists) is refused, with the reasons shown. The current crontab is backed up first, so a restore can itself be undone. Restores are written to the action log when logging is enabled. New endpoints: `GET /backups`, `GET /backups/{name}`, `POST /backups/{name}/restore`.
