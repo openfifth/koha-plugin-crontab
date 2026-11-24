@@ -448,6 +448,9 @@
                 "403": {
                     "description": "Access forbidden"
                 },
+                "400": {
+                    "description": "Job cannot be enabled: its command is no longer valid, or it violates its script's requirements or policy"
+                },
                 "404": {
                     "description": "Job not found"
                 },

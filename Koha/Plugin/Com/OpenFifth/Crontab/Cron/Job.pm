@@ -87,6 +87,66 @@ sub parse_job_metadata {
     return \%metadata;
 }
 
+=head2 validate_job_fields
+
+Validate the user-supplied free-text fields of a job (name, description,
+schedule, command, environment) before they are written to the crontab.
+
+The crontab is a line-oriented file, so a newline in any value written
+into it -- a comment (name/description), an environment variable, the
+schedule or the command -- would start a new, attacker-controlled crontab
+line, running arbitrary commands regardless of the script allowlist. Every
+field is therefore required to be single-line, environment variable names
+must be plain identifiers, and (with C<check_env_policy>) environment
+variables that change how the interpreter or dynamic loader behaves
+(C<PERL5OPT>, C<LD_PRELOAD>, C<PATH>, ...) are refused: setting them would
+let an approved script load arbitrary code.
+
+    my $check = $job->validate_job_fields( $data, check_env_policy => 1 );
+
+Only fields present in C<$data> are checked. Returns
+C<< { valid => 1 } >> or C<< { valid => 0, error => '...' } >>.
+
+=cut
+
+my $UNSAFE_ENV_NAME = qr/^(?:
+      LD_\w*|DYLD_\w*|GCONV_PATH|HOSTALIASES|LOCALDOMAIN|NLSPATH
+    | PATH|IFS|SHELL|ENV|BASH_ENV|BASH_FUNC_\w*|PS4|PROMPT_COMMAND
+    | PERL5?OPT|PERL5LIB|PERLLIB|PERL5DB|PERL5SHELL|PERL_\w+
+    | PYTHON\w*|RUBY\w*|NODE_OPTIONS|NODE_PATH|JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|CLASSPATH
+)$/xi;
+
+sub validate_job_fields {
+    my ( $self, $data, %opts ) = @_;
+
+    my %limits = ( name => 255, description => 2000, schedule => 255, command => 4096 );
+    for my $field (qw(name description schedule command)) {
+        next unless defined $data->{$field};
+        my $value = $data->{$field};
+        return { valid => 0, error => "Field '$field' must be a single line of text" }
+            if ref $value || $value =~ /[\r\n\0]/;
+        return { valid => 0, error => "Field '$field' is too long (maximum $limits{$field} characters)" }
+            if length $value > $limits{$field};
+    }
+
+    if ( defined $data->{environment} ) {
+        return { valid => 0, error => "Field 'environment' must be an object of NAME => value pairs" }
+            unless ref $data->{environment} eq 'HASH';
+
+        for my $name ( sort keys %{ $data->{environment} } ) {
+            my $value = $data->{environment}{$name};
+            return { valid => 0, error => "Invalid environment variable name '" . ( $name =~ s/[^\x20-\x7e]/?/gr ) . "' (letters, digits and underscores only, not starting with a digit)" }
+                unless $name =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
+            return { valid => 0, error => "Environment variable '$name' must have a single-line text value" }
+                if !defined $value || ref $value || $value =~ /[\r\n\0]/;
+            return { valid => 0, error => "Environment variable '$name' is not permitted: it changes how scripts are loaded or executed" }
+                if $opts{check_env_policy} && $name =~ $UNSAFE_ENV_NAME;
+        }
+    }
+
+    return { valid => 1 };
+}
+
 =head2 create_job_block
 
 Create a crontab block with metadata for a job
@@ -106,6 +166,12 @@ Create a crontab block with metadata for a job
 
 sub create_job_block {
     my ( $self, $job_data ) = @_;
+
+    # Last line of defence: whatever the caller validated, never write a
+    # value containing a newline (or an invalid variable name) into the
+    # crontab -- it would become a new crontab line.
+    my $safe = $self->validate_job_fields($job_data);
+    die "Refusing to write unsafe job data: $safe->{error}\n" unless $safe->{valid};
 
     my $now = strftime( "%Y-%m-%d %H:%M:%S", localtime );
 

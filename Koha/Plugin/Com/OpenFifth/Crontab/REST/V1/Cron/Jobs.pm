@@ -189,6 +189,10 @@ sub add {
             { crontab => $crontab }
           );
 
+        if ( my $err = _fields_error( $job_model, $body ) ) {
+            return $c->render( status => 400, openapi => { error => $err } );
+        }
+
         # Validate command uses approved script
         my $validation = $script_model->validate_command( $body->{command} );
         unless ( $validation->{valid} ) {
@@ -196,6 +200,10 @@ sub add {
                 status  => 400,
                 openapi => { error => $validation->{error} }
             );
+        }
+
+        if ( my $err = _script_args_error( $script_model, $validation, $body->{command} ) ) {
+            return $c->render( status => 400, openapi => { error => $err } );
         }
 
         if ( my $policy = $validation->{policy} ) {
@@ -323,6 +331,10 @@ sub migrate {
             { crontab => $crontab }
           );
 
+        if ( my $err = _fields_error( $job_model, $body ) ) {
+            return $c->render( status => 400, openapi => { error => $err } );
+        }
+
         # Validate command uses approved script, exactly as 'add' does
         my $validation = $script_model->validate_command( $body->{command} );
         unless ( $validation->{valid} ) {
@@ -330,6 +342,10 @@ sub migrate {
                 status  => 400,
                 openapi => { error => $validation->{error} }
             );
+        }
+
+        if ( my $err = _script_args_error( $script_model, $validation, $body->{command} ) ) {
+            return $c->render( status => 400, openapi => { error => $err } );
         }
 
         if ( my $policy = $validation->{policy} ) {
@@ -366,7 +382,12 @@ sub migrate {
 
         my $job_id      = $job_model->generate_job_id();
         my $now         = strftime( "%Y-%m-%d %H:%M:%S", localtime );
-        my $description = join( "\n", map { my $line = $_; $line =~ s/^\s*#\s?//; $line } @$comments );
+
+        # The description is written back as a single "# @description:" comment
+        # line, so the original comment lines must be flattened: a literal
+        # newline would turn the continuation into a stray crontab line.
+        my $description = join( ' ', grep { length } map { my $line = $_; $line =~ s/^\s*#\s?//; $line =~ s/\s+$//; $line =~ s/[\r\n\0]+/ /g; $line } @$comments );
+        $description = substr( $description, 0, 2000 ) if length $description > 2000;
         my $migrated_job;
 
         my $result = $crontab->safely_modify_crontab(
@@ -475,6 +496,10 @@ sub update {
             { crontab => $crontab }
           );
 
+        if ( my $err = _fields_error( $job_model, $body ) ) {
+            return $c->render( status => 400, openapi => { error => $err } );
+        }
+
         # Validate command if it's being updated
         if ( defined $body->{command} ) {
             my $validation = $script_model->validate_command( $body->{command} );
@@ -483,6 +508,10 @@ sub update {
                     status  => 400,
                     openapi => { error => $validation->{error} }
                 );
+            }
+
+            if ( my $err = _script_args_error( $script_model, $validation, $body->{command} ) ) {
+                return $c->render( status => 400, openapi => { error => $err } );
             }
         }
 
@@ -720,6 +749,46 @@ sub enable {
         );
 
         my $job_name;
+
+        # Enabling a job activates it, so it has to pass everything adding it
+        # would: the command must still be an approved script (the allowlist
+        # may have tightened, or the job may predate command validation) and
+        # the script's declared requirements and policy must still hold. A
+        # job that doesn't exist falls through to the 404 below.
+        my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => $crontab } );
+        my ($existing_job) = grep { $_->{id} eq $job_id } @{ $job_model->get_plugin_managed_jobs() };
+        if ($existing_job) {
+            my $validation = $script_model->validate_command( $existing_job->{command} );
+            unless ( $validation->{valid} ) {
+                return $c->render(
+                    status  => 400,
+                    openapi => { error => "Cannot enable job: " . $validation->{error} }
+                );
+            }
+
+            my $err = _script_args_error( $script_model, $validation, $existing_job->{command} );
+            if ( !$err && ( my $policy = $validation->{policy} ) ) {
+                my $check;
+                if ( $policy->{non_repeatable} ) {
+                    $check = $script_model->check_non_repeatable( $validation->{script}, $job_model->get_all_crontab_entries(), $job_id );
+                    $err = $check->{error} unless $check->{valid};
+                }
+                if ( !$err && $policy->{allowed_hours} ) {
+                    $check = $script_model->check_allowed_hours( $policy->{allowed_hours}, $existing_job->{schedule} );
+                    $err = $check->{error} unless $check->{valid};
+                }
+                if ( !$err && $policy->{required_options} && @{ $policy->{required_options} } ) {
+                    $check = $script_model->check_required_options(
+                        $policy->{required_options}, $existing_job->{command}, $validation->{script}{path}
+                    );
+                    $err = $check->{error} unless $check->{valid};
+                }
+            }
+
+            if ($err) {
+                return $c->render( status => 400, openapi => { error => "Cannot enable job: $err" } );
+            }
+        }
 
         my $result = $crontab->safely_modify_crontab(
             sub {
@@ -990,6 +1059,39 @@ sub get_environment {
 }
 
 =head2 Internal Methods
+
+=head3 _script_args_error
+
+Check a command's bare arguments against what its script declares it needs
+(C<args =E<gt> { min =E<gt> N }> in C<Koha::Script-E<gt>describe_options>).
+Applies whether or not an admin policy exists for the script, like named
+required options declared by the script. Returns an error string, or undef
+if the command is fine.
+
+=cut
+
+sub _script_args_error {
+    my ( $script_model, $validation, $command ) = @_;
+
+    my $check = $script_model->check_positional_args( $validation->{script}, $command );
+    return $check->{valid} ? undef : $check->{error};
+}
+
+=head3 _fields_error
+
+Validate the free-text fields of a request body (name, description,
+schedule, command, environment) with C<Cron::Job-E<gt>validate_job_fields>,
+including the environment-variable deny list. Returns an error string, or
+undef if the fields are acceptable.
+
+=cut
+
+sub _fields_error {
+    my ( $job_model, $body ) = @_;
+
+    my $check = $job_model->validate_job_fields( $body, check_env_policy => 1 );
+    return $check->{valid} ? undef : $check->{error};
+}
 
 =head3 _check_user_allowlist
 

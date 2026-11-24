@@ -446,13 +446,15 @@ sub _parse_option_spec {
     }
 
     return {
-        name        => $name,
-        short_name  => $short_name,
-        type        => $type,
-        negatable   => $negatable,
-        incremental => $incremental,
-        repeatable  => $repeatable,
-        dest_type   => $dest_type,
+        name           => $name,
+        short_name     => $short_name,
+        aliases        => \@names,
+        type           => $type,
+        negatable      => $negatable,
+        incremental    => $incremental,
+        repeatable     => $repeatable,
+        dest_type      => $dest_type,
+        optional_value => ( $req_char eq ':' ? 1 : 0 ),
     };
 }
 
@@ -780,11 +782,18 @@ sub validate_command {
 
     return { valid => 0, error => "Command is required" } unless $command;
 
-    # Extract the script path (first token before any parameters)
-    my @parts = split /\s+/, $command;
-    my $script_path = $parts[0];
+    # Reject anything that is not a plain "script args... [redirections]"
+    # line before matching the script: the approved-list check below only
+    # looks at the first word, so without this a command like
+    # "approved.pl; anything-else" or "approved.pl $(anything-else)" would
+    # satisfy the allowlist while running arbitrary shell.
+    my $parsed = $self->parse_command($command);
+    return { valid => 0, error => $parsed->{error} } unless $parsed->{valid};
 
-    return { valid => 0, error => "Empty command" } unless $script_path;
+    # The script path is the first word of the command
+    my $script_path = $parsed->{words}[0];
+
+    return { valid => 0, error => "Empty command" } unless defined $script_path && length $script_path;
 
     # Get list of available scripts
     my $available_scripts = $self->get_available_scripts();
@@ -816,6 +825,269 @@ sub validate_command {
         script => $matched_script,
         policy => $self->_policy_with_script_declared_required($matched_script),
     };
+}
+
+=head2 parse_command
+
+Tokenize a cron command line into words, accepting only a deliberately
+small, safe subset of shell syntax: plain words, single/double quoted
+strings, backslash escapes, simple C<$NAME>/C<${NAME}> variable references
+(e.g. C<$KOHA_CRON_PATH>), and file redirections (C<E<gt>>, C<E<gt>E<gt>>,
+C<2E<gt>&1>, C<E<lt>>). Anything that would run a second command or change
+what runs -- C<;>, C<|>, C<&&>, C<||>, a lone C<&>, backticks, C<$(...)>,
+subshells, here-documents, process substitution -- or that cannot live on a
+single crontab line (newline, CR, NUL) is rejected.
+
+    my $parsed = $script->parse_command($command);
+
+Returns C<< { valid => 1, words => [...], redirects => [...] } >>, where
+C<words> excludes redirection operators and their targets, or
+C<< { valid => 0, error => '...' } >>.
+
+=cut
+
+sub parse_command {
+    my ( $self, $command ) = @_;
+
+    return { valid => 0, error => 'Command is required' } unless defined $command && length $command;
+    return { valid => 0, error => 'Command must be a single line (no newline, carriage return or NUL characters)' }
+        if $command =~ /[\r\n\0]/;
+
+    my @chars = split //, $command;
+    my $n     = scalar @chars;
+    my $i     = 0;
+    my ( @words, @redirects );
+
+    my $fail = sub { die { msg => "Command contains unsupported shell syntax: $_[0]" } };
+
+    # Read one word starting at $i, stopping (without consuming) at
+    # whitespace or an unquoted shell metacharacter.
+    my $read_word = sub {
+        my $buf  = '';
+        my $have = 0;
+        while ( $i < $n ) {
+            my $c = $chars[$i];
+            last if $c =~ /\s/ || $c =~ /[;|&<>()]/;
+
+            if ( $c eq '`' ) { $fail->('backtick command substitution') }
+
+            if ( $c eq '\\' ) {
+                $i++;
+                $fail->('trailing backslash') if $i >= $n;
+                $buf .= $chars[$i];
+                $have = 1;
+                $i++;
+                next;
+            }
+
+            if ( $c eq "'" ) {
+                my $end = $i + 1;
+                $end++ while $end < $n && $chars[$end] ne "'";
+                $fail->('unterminated single quote') if $end >= $n;
+                $buf .= join( '', @chars[ $i + 1 .. $end - 1 ] );
+                $have = 1;
+                $i    = $end + 1;
+                next;
+            }
+
+            if ( $c eq '"' ) {
+                $i++;
+                my $closed = 0;
+                while ( $i < $n ) {
+                    my $d = $chars[$i];
+                    if ( $d eq '"' ) { $closed = 1; $i++; last; }
+                    if ( $d eq '\\' ) {
+                        $i++;
+                        $fail->('unterminated double quote') if $i >= $n;
+                        $buf .= $chars[$i];
+                        $i++;
+                        next;
+                    }
+                    $fail->('backtick command substitution') if $d eq '`';
+                    if ( $d eq '$' ) {
+                        my $next = $i + 1 < $n ? $chars[ $i + 1 ] : '';
+                        $fail->('command substitution or special parameter expansion')
+                            unless $next =~ /[A-Za-z_]/ || ( $next eq '{' );
+                    }
+                    $buf .= $d;
+                    $i++;
+                }
+                $fail->('unterminated double quote') unless $closed;
+                $have = 1;
+                next;
+            }
+
+            if ( $c eq '$' ) {
+                my $next = $i + 1 < $n ? $chars[ $i + 1 ] : '';
+                if ( $next eq '{' ) {
+                    my $rest = join( '', @chars[ $i .. $n - 1 ] );
+                    $fail->('parameter expansion other than ${NAME}') unless $rest =~ /^\$\{[A-Za-z_]\w*\}/;
+                } elsif ( $next !~ /[A-Za-z_]/ ) {
+                    $fail->('command substitution or special parameter expansion');
+                }
+            }
+
+            $buf .= $c;
+            $have = 1;
+            $i++;
+        }
+        return ( $buf, $have );
+    };
+
+    my $skip_space = sub { $i++ while $i < $n && $chars[$i] =~ /\s/ };
+
+    my $parsed_ok = eval {
+        while (1) {
+            $skip_space->();
+            last if $i >= $n;
+            my $c = $chars[$i];
+
+            # Redirection, optionally preceded by a file-descriptor number
+            # ("2>&1", "2>file") or the "&>" shorthand.
+            my $j = $i;
+            $j++ while $j < $n && $chars[$j] =~ /\d/;
+            my $is_fd_redirect = $j > $i && $j < $n && $chars[$j] =~ /[<>]/;
+
+            if ( $is_fd_redirect || $c eq '>' || $c eq '<' || ( $c eq '&' && $i + 1 < $n && $chars[ $i + 1 ] eq '>' ) ) {
+                my $op = '';
+                if ($is_fd_redirect) {
+                    $op = join( '', @chars[ $i .. $j - 1 ] );
+                    $i  = $j;
+                }
+                if ( $chars[$i] eq '&' ) { $op .= '&'; $i++; }
+                my $dir = $chars[$i];
+                $op .= $dir;
+                $i++;
+                if ( $dir eq '>' && $i < $n && $chars[$i] eq '>' ) { $op .= '>'; $i++; }
+                if ( $dir eq '<' && $i < $n && $chars[$i] =~ /[<(&]/ ) {
+                    $fail->( $chars[$i] eq '<' ? 'here-document' : $chars[$i] eq '(' ? 'process substitution' : 'input descriptor duplication' );
+                }
+
+                # fd duplication / close: ">&1", ">&2", ">&-"
+                if ( $dir eq '>' && $i < $n && $chars[$i] eq '&' && $op !~ /&/ ) {
+                    my $rest = join( '', @chars[ $i + 1 .. $n - 1 ] );
+                    if ( $rest =~ /^(\d+|-)(?=\s|$)/ ) {
+                        $i += 1 + length $1;
+                        push @redirects, $op . '&' . $1;
+                        next;
+                    }
+                    $fail->('file-descriptor duplication');
+                }
+
+                $skip_space->();
+                my ( $target, $have ) = $read_word->();
+                $fail->('redirection without a target') unless $have;
+                push @redirects, "$op $target";
+                next;
+            }
+
+            if ( $c =~ /[;|&()]/ ) {
+                my %names = ( ';' => "';' (command chaining)", '|' => "'|' (pipe or '||')", '&' => "'&' (background or '&&')", '(' => "'(' (subshell)", ')' => "')'" );
+                $fail->( $names{$c} );
+            }
+
+            my ( $word, $have ) = $read_word->();
+            push @words, $word if $have;
+        }
+        1;
+    };
+
+    unless ($parsed_ok) {
+        my $err = $@;
+        return { valid => 0, error => ref $err eq 'HASH' ? $err->{msg} : "Command could not be parsed: $err" };
+    }
+
+    return { valid => 0, error => 'Empty command' } unless @words;
+
+    return { valid => 1, words => \@words, redirects => \@redirects };
+}
+
+=head2 check_positional_args
+
+Check that a command supplies at least the number of bare (positional)
+arguments its script declares via C<args =E<gt> { min =E<gt> N }> in
+C<Koha::Script-E<gt>describe_options>. Mirrors what core itself enforces at
+runtime, so a job that would die immediately with "At least N ... required"
+is rejected when it is saved rather than failing silently from cron.
+
+Option tokens (and the values they consume) are skipped using the script's
+parsed option list, honouring C<--> as end-of-options, C<--opt=value>,
+C<--no-opt>, short aliases and legacy single-dash long options, and
+Getopt::Long's rule that an optional-value (C<:s>) option only takes the next
+word when it does not start with C<->. Redirections are not arguments.
+
+    my $result = $script->check_positional_args( $script_info, $command );
+
+Returns C<< { valid => 1 } >> or C<< { valid => 0, error => '...' } >>.
+Scripts with no declared positional requirement always pass.
+
+=cut
+
+sub check_positional_args {
+    my ( $self, $script_info, $command ) = @_;
+
+    return { valid => 1 } unless $script_info && ( $script_info->{type} // '' ) eq 'perl';
+
+    my $parsed_opts = $self->parse_script_options( $script_info->{path} );
+    my ($requirement) = grep { $_->{required} && $_->{min} } @{ $parsed_opts->{positional_args} };
+    return { valid => 1 } unless $requirement;
+
+    my $parsed = $self->parse_command($command);
+    return { valid => 0, error => $parsed->{error} } unless $parsed->{valid};
+
+    my @args = @{ $parsed->{words} };
+    shift @args;    # the script itself
+
+    my ( %by_name, %is_negatable );
+    for my $opt ( @{ $parsed_opts->{options} } ) {
+        $by_name{$_} = $opt for @{ $opt->{aliases} || [ $opt->{name} ] };
+        if ( $opt->{negatable} ) {
+            $by_name{"no-$_"} = $opt for @{ $opt->{aliases} || [ $opt->{name} ] };
+            $by_name{"no$_"}  = $opt for @{ $opt->{aliases} || [ $opt->{name} ] };
+        }
+    }
+
+    my $takes_value = sub {
+        my ( $opt, $next ) = @_;
+        return 0 unless $opt && $opt->{type} =~ /^(?:string|integer|float)$/;
+        return 1 unless $opt->{optional_value};
+
+        # Getopt::Long: an optional value is only taken when the next word
+        # doesn't look like an option (and, for numeric types, is a number)
+        return 0 unless defined $next && $next !~ /^-/;
+        return 0 if $opt->{type} eq 'integer' && $next !~ /^\d+$/;
+        return 0 if $opt->{type} eq 'float'   && $next !~ /^[\d.]+$/;
+        return 1;
+    };
+
+    my $count       = 0;
+    my $end_of_opts = 0;
+    while (@args) {
+        my $word = shift @args;
+
+        if ($end_of_opts) { $count++; next; }
+        if ( $word eq '--' ) { $end_of_opts = 1; next; }
+
+        if ( $word =~ /^--?([^-=][^=]*)(=.*)?$/s ) {
+            my ( $name, $inline ) = ( $1, $2 );
+            my $opt = $by_name{$name};
+            shift @args if $opt && !defined $inline && $takes_value->( $opt, $args[0] ) && @args;
+            next;
+        }
+
+        $count++;
+    }
+
+    my $min = $requirement->{min};
+    if ( $count < $min ) {
+        my $name = $requirement->{name} || 'argument';
+        return {
+            valid => 0,
+            error => "At least $min $name " . ( $min == 1 ? 'argument' : 'arguments' ) . " required (got $count)",
+        };
+    }
+
+    return { valid => 1 };
 }
 
 =head2 _policy_with_script_declared_required

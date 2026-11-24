@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Script allowlist bypass via shell syntax in the command.** `validate_command` only compared the first word of a command with the approved script list, so `approved.pl; anything`, `approved.pl $(anything)`, a pipe, `&&`, backticks, or a newline (which starts a second crontab line) were all accepted and then run with the Koha instance's privileges. Commands are now tokenized (`Cron::Script::parse_command`) and only plain words, quoting, simple `$NAME` references and file redirections (`>/dev/null 2>&1`) are accepted.
+- **Crontab line injection through other free-text fields.** A newline in a job's `name`, `description`, `schedule`, or an environment variable name or value was written into the crontab verbatim and became a new, attacker-controlled crontab line. All of these are now validated as single-line (`Cron::Job::validate_job_fields`), environment variable names must be plain identifiers, and `Cron::Job::create_job_block` -- the single write path for add, update and migrate -- refuses unsafe data as a last line of defence.
+- **Environment variables that load code.** `PERL5OPT`, `PERL5LIB`, `LD_*`, `PATH`, `BASH_ENV`, `PYTHON*`, `NODE_OPTIONS` and similar can no longer be set on a job: they let an approved script load arbitrary code.
+- **Enabling a job skipped all validation.** Enabling a disabled job now re-validates its command against the approved list, its script's declared requirements, and its script policy (non-repeatable, allowed hours, required options), exactly as adding it would.
+
+Anyone who can use the plugin (superlibrarians, or the configured user allowlist) could previously run arbitrary shell commands as the Koha user, defeating both allowlists. Upgrading is recommended for all installations.
+
+### Added
+
+- Server-side enforcement of required positional arguments: a job whose command supplies fewer bare arguments than its script's `args => { min => N }` declaration is rejected on add, update and enable, with the same wording core uses (`At least 1 output_directory argument required (got 0)`). Option values, `--`, `--opt=value`, `--no-opt`, short and legacy single-dash aliases, Getopt::Long's optional-value rule, and redirections are all accounted for when counting.
+- Parsed script options now include `aliases` and `optional_value`.
+
+### Changed
+
+- Commands containing shell syntax other than quoting, `$NAME` references and redirections are now rejected, including when migrating an existing system cron entry (for example one that pipes into another command). Such entries need to be wrapped in a script.
+- Migrated job descriptions built from multi-line crontab comments are now joined with spaces onto a single line.
+- The OpenAPI spec now documents the `400` response of `POST /jobs/{job_id}/enable`.
+
 ### Changed
 
 - `describe_options` detection is now anchored to a real `Koha::Script->describe_options(` call in executable code. Comments, POD, text after `__END__`, and `describe_options` on other classes no longer divert a plain-`GetOptions` script onto the describe_options parser (which would have dropped its options). Verified against the nine core cron scripts converted so far.
