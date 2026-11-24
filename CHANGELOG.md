@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-24
+
 ### Security
 
 - **The server policy file was not an effective ceiling.** An empty effective policy was treated as "no policy, allow every script", so with a server policy file configured, a library policy that was unset, cleared, or listed only scripts the server file did not include offered **every script under `KOHA_CRON_PATH`** (and `validate_command` accepted them). The server file now holds: whenever a server or library policy exists, only scripts the effective policy allows can be scheduled, and an empty result means none. A server policy with an unset or cleared library policy is simply the server policy. Installations that rely on a server policy file should upgrade.
