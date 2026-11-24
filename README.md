@@ -40,6 +40,63 @@ scripts:
 
 `path` is relative to `KOHA_CRON_PATH`. `allowed_hours` takes hours and ranges (`"2"`, `"0-5"`, `"0-5,22-23"`).
 
+## Server-managed policy (for administrators)
+
+If you run Koha for several libraries, or manage it with configuration management such as Ansible, you can set the script policy from a file on the server instead of leaving it to staff on the Configure page. The file uses the same schema as above and is the **policy of record**: staff can narrow it but never widen it.
+
+1. Write the policy file somewhere the Koha instance user can read, but not write (so staff cannot alter it through the plugin):
+
+   ```yaml
+   # /etc/koha/plugins/crontab-script-policy.yaml
+   scripts:
+     - path: process_message_queue.pl
+     - path: holds/holds_reminder.pl
+     - path: cleanup_database.pl
+       non_repeatable: true
+       allowed_hours: "0-5"
+       required_options: [sessions]
+   ```
+
+2. Point the plugin at it in the instance's `koha-conf.xml`, inside the `<config>` block, and restart Plack:
+
+   ```xml
+   <koha_plugin_crontab_script_policy>/etc/koha/plugins/crontab-script-policy.yaml</koha_plugin_crontab_script_policy>
+   ```
+
+How it combines with the library policy edited on the Configure page:
+
+- **Scripts:** only scripts the server file lists can be scheduled. A script it doesn't list is refused no matter what the library policy says, and an empty or unconfigured library policy does *not* unlock everything. The library policy can only select a subset.
+- **Unconfigured library policy:** the server file applies as written. On install the plugin does not seed its own default list when a server file is configured, so there is nothing to narrow it.
+- **Constraints:** `non_repeatable` and `required_options` set by the server file always apply, and the library policy can only add to them. `allowed_hours` can only be narrowed, to the hours both allow.
+- **Directories:** an entry ending in `/` (for example `batch/`) offers every script under it.
+- **No restart needed for edits:** the file is read on every request, so changing it (an Ansible run, for instance) takes effect immediately. Only changing the `koha-conf.xml` setting needs a restart.
+
+An Ansible sketch:
+
+```yaml
+- name: Crontab plugin script policy
+  ansible.builtin.copy:
+    dest: /etc/koha/plugins/crontab-script-policy.yaml
+    owner: root
+    group: "{{ koha_instance }}-koha"
+    mode: "0640"
+    content: |
+      scripts:
+      {% for script in crontab_plugin_scripts %}
+        - path: {{ script.path }}
+      {% if script.non_repeatable | default(false) %}
+          non_repeatable: true
+      {% endif %}
+      {% endfor %}
+
+- name: Point the plugin at it
+  community.general.xml:
+    path: "/etc/koha/sites/{{ koha_instance }}/koha-conf.xml"
+    xpath: /yazgfs/config/koha_plugin_crontab_script_policy
+    value: /etc/koha/plugins/crontab-script-policy.yaml
+  notify: restart plack
+```
+
 ## Environment variables
 
 Jobs cannot set environment variables. In a crontab an environment line is not scoped to the job next to it: it stays in effect for every entry that follows it in the file, managed by this plugin or not, until it is set again. A "per-job" `MAILTO=` would silently redirect the output of every later job, and a `KOHA_CRON_PATH` or `PERL5OPT` could redirect or hijack every script that follows.

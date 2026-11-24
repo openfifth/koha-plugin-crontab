@@ -310,17 +310,25 @@ sub install() {
     # ship wide open (every script under KOHA_CRON_PATH schedulable). The
     # defaults live in default-policy.yaml rather than in code. Never
     # overwrites an already-configured policy.
+    #
+    # Skipped when a server policy file is configured: that file is the
+    # administrators' policy, and a seeded library policy would silently
+    # narrow it to the shipped defaults. With the library tier left unset the
+    # server policy applies as written.
     unless ( defined $self->retrieve_data('script_policy') ) {
-        my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => {} } );
-        my $defaults     = $script_model->_load_policy_source( $script_model->get_default_policy_text() );
+        my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => { plugin => $self } } );
 
-        unless (@$defaults) {
-            warn "Crontab plugin: default-policy.yaml is missing or has no scripts; "
-                . "refusing to install with an unrestricted script policy";
-            return 0;
+        unless ( @{ $script_model->get_server_policy() } ) {
+            my $defaults = $script_model->_load_policy_source( $script_model->get_default_policy_text() );
+
+            unless (@$defaults) {
+                warn "Crontab plugin: default-policy.yaml is missing or has no scripts; "
+                    . "refusing to install with an unrestricted script policy";
+                return 0;
+            }
+
+            $self->store_data( { script_policy => Dump( { scripts => $defaults } ) } );
         }
-
-        $self->store_data( { script_policy => Dump( { scripts => $defaults } ) } );
     }
 
     # Store installation success

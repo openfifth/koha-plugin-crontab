@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **The server policy file was not an effective ceiling.** An empty effective policy was treated as "no policy, allow every script", so with a server policy file configured, a library policy that was unset, cleared, or listed only scripts the server file did not include offered **every script under `KOHA_CRON_PATH`** (and `validate_command` accepted them). The server file now holds: whenever a server or library policy exists, only scripts the effective policy allows can be scheduled, and an empty result means none. A server policy with an unset or cleared library policy is simply the server policy. Installations that rely on a server policy file should upgrade.
 - **Jobs can no longer set environment variables.** In a crontab an environment line is not scoped to the job beside it: it stays in effect for every later entry in the file, managed by this plugin or not (verified against Debian cron, both `/etc/cron.d` and user crontabs). A "per-job" `MAILTO` or `TZ` silently changed every job after it, and `KOHA_CRON_PATH` (expanded in the command the plugin writes), `KOHA_CONF`, `PERL5OPT`, `LD_PRELOAD`, `PATH` and similar let an approved script load or run something else. The add, update and migrate endpoints now reject any new environment variable (`Cron::Job::check_environment_change`). Set variables once in the crontab header instead.
 - A job that already carries environment variables keeps working and can have them removed from its edit form, but none can be added or changed. Existing environment lines still leak into the jobs after them until removed, so installations should audit for jobs that set them, in particular `KOHA_CRON_PATH`.
 
@@ -18,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- When a server policy file is configured, install no longer seeds the default library policy, which would silently narrow the server policy to the shipped defaults.
+- README gains a "Server-managed policy (for administrators)" section: the file, how it combines with the library policy, and an Ansible sketch.
 - The default script policy seeded on a fresh install now comes from `default-policy.yaml` instead of a list in code. Install refuses to seed an unrestricted policy if that file is missing.
 - The job edit form lists a job's existing environment variables read-only (removable) and no longer offers to add one.
 

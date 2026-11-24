@@ -134,9 +134,12 @@ sub get_available_scripts {
 
     my $effective_policy = $self->_effective_policy();
 
-    # Filter by script policy if configured (unless bypassed)
+    # Filter by script policy if one is configured (unless bypassed). Whether
+    # a policy exists is a property of the tiers, not of the merged list: a
+    # server ceiling that ends up leaving nothing allowed means "no scripts",
+    # never "no policy, so everything".
     unless ( $options->{bypass_filter} ) {
-        if (@$effective_policy) {
+        if ( $self->_policy_is_restricted() ) {
             my @filtered_scripts;
             for my $script (@scripts) {
                 my $rel_path = $script->{relative_path};
@@ -1342,6 +1345,12 @@ sub _merge_policy_tiers {
 
     return $library_entries unless @$server_entries;
 
+    # A server policy with a library tier that hasn't narrowed anything
+    # (never configured, or cleared) is simply the server policy: the
+    # library tier can only narrow, so "nothing selected" must not turn the
+    # ceiling into a free-for-all.
+    return $server_entries unless @$library_entries;
+
     my %server_by_path = map { $_->{path} => $_ } @$server_entries;
 
     my @effective;
@@ -1453,6 +1462,23 @@ sub get_default_policy_text {
     close $fh;
 
     return $text;
+}
+
+=head2 _policy_is_restricted
+
+True if any script policy applies: a server policy file with entries, or
+library policy entries. When true, only scripts matching the effective policy
+may be scheduled -- even if the effective policy is empty, which then means
+no scripts at all (for example a library policy that selects only scripts the
+server policy does not list). When false (nothing configured anywhere) every
+script under C<KOHA_CRON_PATH> is available, as before.
+
+=cut
+
+sub _policy_is_restricted {
+    my ($self) = @_;
+
+    return ( @{ $self->get_server_policy() } || @{ $self->get_library_policy() } ) ? 1 : 0;
 }
 
 =head2 _effective_policy
