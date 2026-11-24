@@ -19,7 +19,7 @@ The plugin provides a configuration page accessible via the "Configure" action i
 
 Both allowlists can also be configured via the koha-conf.xml file (see below).
 
-**An empty script policy means no scripts can be scheduled.** Nothing is permitted until the policy lists scripts (on the Configure page, or in a server policy file; see below). On a fresh install the plugin seeds a short list of routine scheduled jobs (`longoverdue.pl`, `update_patrons_category.pl`, `process_message_queue.pl`, `holds/holds_reminder.pl`) from [`default-policy.yaml`](Koha/Plugin/Com/OpenFifth/Crontab/default-policy.yaml) inside the plugin. Scripts that can do a lot of damage with the wrong arguments (`runreport.pl`, `cleanup_database.pl`, `gather_print_notices.pl`) are deliberately left out; add them yourself if you want them. The seed happens once, at install time: it can be freely edited from the Configure page afterwards, and upgrading never overwrites a policy you've already configured. If a server policy file is configured, nothing is seeded, because the server policy applies as written.
+**An empty script policy means no scripts can be scheduled.** Nothing is permitted until the policy lists scripts (on the Configure page, or in a server policy file; see below). On a fresh install the plugin seeds a short list of the routine scheduled jobs librarians most often want to control (`runreport.pl`, `longoverdue.pl`, `update_patrons_category.pl`, `process_message_queue.pl`, `holds/holds_reminder.pl`) from [`default-policy.yaml`](Koha/Plugin/Com/OpenFifth/Crontab/default-policy.yaml) inside the plugin. Scripts that can do a lot of damage with the wrong arguments (`cleanup_database.pl`, `gather_print_notices.pl`) are deliberately left out; add them yourself if you want them. The seed happens once, at install time: it can be freely edited from the Configure page afterwards, and upgrading never overwrites a policy you've already configured. If a server policy file is configured, nothing is seeded, because the server policy applies as written.
 
 ## Policy files
 
@@ -138,9 +138,9 @@ even if the patron has the admin plugins permission.
 
 ### What the script policy does and does not limit
 
-The script policy limits **which scripts** can be scheduled, and can require options (`required_options`), restrict hours and prevent duplicate instances. It does **not** restrict the values of a script's arguments, and it is not a sandbox: an allowlisted script can do anything it can do, with any arguments, as the Koha user. Treat access to the plugin as equivalent to running the allowlisted scripts yourself. In particular, among the scripts you might add:
+The script policy limits **which scripts** can be scheduled, and can require options (`required_options`), restrict hours and prevent duplicate instances. It does **not** restrict the values of a script's arguments, and it is not a sandbox: an allowlisted script can do anything it can do, with any arguments, as the Koha user. Treat access to the plugin as equivalent to running the allowlisted scripts yourself. In particular:
 
-- `runreport.pl` runs any saved report and can email or SFTP its output (`--to`, `--from`, `--sftp-dest-id`), so it can read whatever a saved report can read.
+- `runreport.pl` (in the defaults) runs any saved report and can email or SFTP its output (`--to`, `--from`, `--sftp-dest-id`), so it can read whatever a saved report can read.
 - `cleanup_database.pl` deletes data by age, including Koha's action logs (`--logs`) and sessions. A job with a short retention shortens the audit trail, including the entries this plugin writes when logging is enabled.
 - `gather_print_notices.pl` writes files to whatever directory it is given, anywhere the Koha user can write.
 

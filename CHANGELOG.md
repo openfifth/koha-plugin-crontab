@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `runreport.pl` is back in the default script policy seeded on a fresh install: it is the script librarians most often want to control. It can email or SFTP any saved report's output, so the README's note on what the script policy does and does not limit still applies. Existing installations keep the policy they already have (the seed only happens once).
+
 ## [1.7.2] - 2026-11-24
 
 ### Security

@@ -12,6 +12,7 @@ unshift @INC, $plugin_dir;
 use_ok($plugin_module);
 
 my @expected_paths = (
+    'runreport.pl',
     'longoverdue.pl',
     'update_patrons_category.pl',
     'process_message_queue.pl',
@@ -19,7 +20,7 @@ my @expected_paths = (
 );
 
 # The sharper scripts are deliberately not seeded
-my @not_expected = qw(runreport.pl cleanup_database.pl gather_print_notices.pl);
+my @not_expected = qw(cleanup_database.pl gather_print_notices.pl);
 
 # Fresh install: no script_policy configured yet
 my $plugin = $plugin_module->new();
@@ -37,7 +38,7 @@ is_deeply(
     [ sort @expected_paths ],
     'install() seeds exactly the expected default allowlist'
 );
-is_deeply( [ grep { my $p = $_; grep { $_ eq $p } @not_expected } @seeded_paths ], [], 'runreport.pl, cleanup_database.pl and gather_print_notices.pl are not in the defaults' );
+is_deeply( [ grep { my $p = $_; grep { $_ eq $p } @not_expected } @seeded_paths ], [], 'cleanup_database.pl and gather_print_notices.pl are not in the defaults' );
 
 # Already-configured install is left untouched
 my $custom_yaml = "scripts:\n  - path: batch/custom_report.pl\n";

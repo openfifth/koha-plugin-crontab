@@ -17,13 +17,14 @@
 #
 # Listing a script lets anyone who can use the plugin run it with any
 # arguments, as the Koha user: this limits which scripts run, not what they
-# do. The defaults below are routine scheduled jobs. Deliberately NOT in the
-# defaults, because of how much they can do with the wrong arguments:
-#   runreport.pl             can email or SFTP any saved report's output
+# do. The defaults below are the routine scheduled jobs librarians most often
+# want to control, including runreport.pl (which can email or SFTP any saved
+# report's output: see "What the script policy does and does not limit" in the
+# README). Deliberately NOT in the defaults, because of how much they can do
+# with the wrong arguments:
 #   cleanup_database.pl      can purge logs, including the audit trail
 #   gather_print_notices.pl  writes files to any directory it is given
-# Add them knowingly, and see "What the script policy does and does not
-# limit" in the README.
+# Add them knowingly.
 #
 # Each entry takes:
 #   path              Script path relative to $KOHA_CRON_PATH
@@ -32,6 +33,7 @@
 #   allowed_hours     Hours of the day the job may run in, e.g. "0-5,22-23"
 #   required_options  Long option names that must be present in the command
 scripts:
+  - path: runreport.pl
   - path: longoverdue.pl
   - path: update_patrons_category.pl
   - path: process_message_queue.pl
