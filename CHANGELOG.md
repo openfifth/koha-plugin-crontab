@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-11-24
+
 ### Security
 
 - The Configure page's save read `enable_logging` and `user_allowlist` in list context inside a hash constructor, so a request repeating one of those parameters could inject extra keys into the stored plugin settings (CGI parameter injection). Exploiting it needs an authenticated administrator's POST carrying a valid CSRF token, so the impact is low, but the values are now read in scalar context and a test covers it.
