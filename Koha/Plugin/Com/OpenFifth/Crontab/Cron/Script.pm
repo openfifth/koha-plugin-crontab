@@ -11,6 +11,13 @@ use C4::Context;
 use YAML::XS qw(Load);
 use Text::ParseWords qw(shellwords);
 
+# Matches a real call to Koha core's Koha::Script->describe_options( -- the
+# only form scripts converted under bug 43546 use -- on a line that isn't a
+# comment. Anchored deliberately: a bare "describe_options(" would also match
+# prose, a different class's method, or Getopt::Long::Descriptive imported
+# directly, none of which carry the args/required conventions parsed here.
+my $DESCRIBE_OPTIONS_CALL = qr/^[ \t]*[^#\n]*?\bKoha::Script\s*->\s*describe_options\s*\(/m;
+
 =head1 NAME
 
 Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script - Script discovery and parsing
@@ -262,13 +269,18 @@ sub parse_script_options {
 
     my ( @options, @positional_args );
 
-    if ( $content =~ /describe_options\s*\(/ ) {
+    # Only executable code counts: a mention of describe_options in a
+    # comment or in POD must not divert a plain-GetOptions script onto the
+    # describe_options path (which would drop its options).
+    my $code = $self->_strip_pod_and_end($content);
+
+    if ( $code =~ $DESCRIBE_OPTIONS_CALL ) {
 
         # Scripts converted to Koha core's Koha::Script->describe_options
         # convention (bug 43546) can declare required-ness reliably --
         # unlike plain GetOptions, this is a real static signal, not an
         # inference.
-        my ( $parsed_options, $positional ) = $self->_parse_describe_options_block($content);
+        my ( $parsed_options, $positional ) = $self->_parse_describe_options_block($code);
         @options = @$parsed_options;
 
         # position/source/label match the shape _detect_argv_usage's
@@ -444,6 +456,22 @@ sub _parse_option_spec {
     };
 }
 
+=head2 _strip_pod_and_end
+
+Return C<$content> with POD blocks (C<=head1> ... C<=cut>) and anything
+after C<__END__>/C<__DATA__> removed, so describe_options detection only
+sees executable code.
+
+=cut
+
+sub _strip_pod_and_end {
+    my ( $self, $content ) = @_;
+
+    $content =~ s/^__(?:END|DATA)__\s*\n.*\z//ms;
+    $content =~ s/^=[a-zA-Z]\w*.*?^=cut\b[^\n]*\n?//gms;
+    return $content;
+}
+
 =head2 _parse_describe_options_block
 
 Extract and parse a C<Koha::Script-E<gt>describe_options(...)> call from
@@ -471,7 +499,7 @@ one was.
 sub _parse_describe_options_block {
     my ( $self, $content ) = @_;
 
-    my $args_text = $self->_extract_balanced_call( $content, qr/describe_options\s*\(/ );
+    my $args_text = $self->_extract_balanced_call( $content, $DESCRIBE_OPTIONS_CALL );
     return ( [], undef ) unless defined $args_text;
 
     my @options;

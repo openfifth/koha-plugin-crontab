@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `describe_options` detection is now anchored to a real `Koha::Script->describe_options(` call in executable code. Comments, POD, text after `__END__`, and `describe_options` on other classes no longer divert a plain-`GetOptions` script onto the describe_options parser (which would have dropped its options). Verified against the nine core cron scripts converted so far.
+
 ## [1.6.7] - 2026-09-22
 
 ### Added
