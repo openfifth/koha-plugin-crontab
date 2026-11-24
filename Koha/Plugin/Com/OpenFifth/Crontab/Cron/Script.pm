@@ -143,13 +143,7 @@ sub get_available_scripts {
             $rel_path =~ s/^\$KOHA_CRON_PATH\/?//;
 
             for my $entry (@$effective_policy) {
-                my $pattern = $entry->{path};
-
-                # Pattern can be exact match or prefix match (e.g., "batch/" matches all in batch dir)
-                if (   $rel_path eq $pattern
-                    || index( $rel_path, $pattern ) == 0
-                    || $script->{name} eq $pattern )
-                {
+                if ( $self->_policy_path_matches( $entry->{path}, $rel_path, $script->{name} ) ) {
                     push @filtered_scripts, $script;
                     last;
                 }
@@ -1464,6 +1458,47 @@ sub get_default_policy_text {
     close $fh;
 
     return $text;
+}
+
+=head2 _policy_path_matches
+
+Whether a policy entry's C<path> covers a script, given the script's path
+relative to C<KOHA_CRON_PATH> and its file name:
+
+    $script->_policy_path_matches( 'batch/', 'batch/nightly.pl', 'nightly.pl' );    # true
+
+A path matches a script when it is
+
+=over 4
+
+=item * the script's relative path (C<holds/holds_reminder.pl>),
+
+=item * the script's file name (C<runreport.pl>), or
+
+=item * a directory containing the script, written with or without a
+trailing slash (C<batch/> or C<batch>, which covers C<batch/nightly.pl> and
+C<batch/sub/other.pl>).
+
+=back
+
+It is deliberately not a plain string prefix: C<cleanup> does not cover
+C<cleanup_database.pl>, and C<batch> does not cover C<batch_evil.pl>. A
+policy entry is a statement about which scripts may run, so it must name a
+script or a directory, not whatever happens to start with the same letters.
+
+=cut
+
+sub _policy_path_matches {
+    my ( $self, $pattern, $rel_path, $name ) = @_;
+
+    return 0 unless defined $pattern && length $pattern;
+
+    return 1 if $rel_path eq $pattern || ( defined $name && $name eq $pattern );
+
+    ( my $dir = $pattern ) =~ s{/+$}{};
+    return 0 unless length $dir;
+
+    return index( $rel_path, "$dir/" ) == 0 ? 1 : 0;
 }
 
 =head2 _effective_policy

@@ -97,4 +97,46 @@ is_deeply( $s->_merge_policy_tiers( [ { path => 'a.pl' } ], [] ), [ { path => 'a
 is_deeply( $s->_merge_policy_tiers( [],                [ { path => 'a.pl' } ] ), [ { path => 'a.pl' } ], 'merge: library with no server is unchanged' );
 is_deeply( $s->_merge_policy_tiers( [ { path => 'a.pl' } ], [ { path => 'b.pl' } ] ), [], 'merge: disjoint tiers leave nothing' );
 
+
+# --- policy paths name a script or a directory, not a string prefix ---------------
+my $pm = model( undef, undef );
+my @cases = (
+    # pattern,             relative path,          name,             expected, description
+    [ 'runreport.pl',      'runreport.pl',         'runreport.pl',   1, 'exact relative path' ],
+    [ 'nightly.pl',        'batch/nightly.pl',     'nightly.pl',     1, 'file name matches a script in a subdirectory' ],
+    [ 'batch/nightly.pl',  'batch/nightly.pl',     'nightly.pl',     1, 'exact path inside a directory' ],
+    [ 'batch/',            'batch/nightly.pl',     'nightly.pl',     1, 'directory with trailing slash' ],
+    [ 'batch',             'batch/nightly.pl',     'nightly.pl',     1, 'directory without trailing slash' ],
+    [ 'batch/',            'batch/sub/deep.pl',    'deep.pl',        1, 'directory covers nested subdirectories' ],
+    [ 'batch//',           'batch/nightly.pl',     'nightly.pl',     1, 'repeated trailing slashes are tolerated' ],
+
+    [ 'cleanup',           'cleanup_database.pl',  'cleanup_database.pl', 0, 'a leading fragment of a file name does not match' ],
+    [ 'cleanup_',          'cleanup_database.pl',  'cleanup_database.pl', 0, 'nor does a longer fragment' ],
+    [ 'runreport',         'runreport.pl',         'runreport.pl',   0, 'a name without its extension does not match' ],
+    [ 'runreport.pl',      'runreport.pl.pl',      'runreport.pl.pl',0, 'an exact name does not match a longer name sharing its start' ],
+    [ 'batch',             'batch_evil.pl',        'batch_evil.pl',  0, 'a directory name does not match a sibling that starts with it' ],
+    [ 'batch/',            'batch_evil.pl',        'batch_evil.pl',  0, 'a directory with slash does not match a sibling either' ],
+    [ 'batch/',            'other/batch/x.pl',     'x.pl',           0, 'a directory only matches from the top of KOHA_CRON_PATH' ],
+    [ 'batch/sub',         'batch/subtle.pl',      'subtle.pl',      0, 'a nested directory name does not match a longer file name' ],
+    [ '/',                 'batch/nightly.pl',     'nightly.pl',     0, 'a bare slash matches nothing' ],
+    [ '',                  'batch/nightly.pl',     'nightly.pl',     0, 'an empty path matches nothing' ],
+    [ 'BATCH/',            'batch/nightly.pl',     'nightly.pl',     0, 'matching is case-sensitive' ],
+);
+for my $c (@cases) {
+    my ( $pattern, $rel, $name, $expected, $desc ) = @$c;
+    is( $pm->_policy_path_matches( $pattern, $rel, $name ), $expected, "'$pattern' vs '$rel': $desc" );
+}
+
+# --- and the same through the whole stack ------------------------------------------------
+mkdir "$dir/batch_evil_dir";
+open my $efh, '>', "$dir/batch_evil.pl" or die $!;
+print {$efh} "#!/usr/bin/perl\n";
+close $efh;
+
+is( names( model( "scripts:\n  - path: batch\n", undef ) ),  'nightly.pl', 'policy "batch" offers batch/nightly.pl but not batch_evil.pl' );
+is( names( model( "scripts:\n  - path: batch/\n", undef ) ), 'nightly.pl', 'policy "batch/" likewise' );
+is( names( model( "scripts:\n  - path: appro\n", undef ) ),  '',           'policy "appro" no longer offers approved.pl' );
+ok( !model( "scripts:\n  - path: appro\n", undef )->validate_command('$KOHA_CRON_PATH/approved.pl')->{valid}, 'validate_command refuses a script only a string prefix names' );
+ok(  model( "scripts:\n  - path: approved.pl\n", undef )->validate_command('$KOHA_CRON_PATH/approved.pl')->{valid}, 'validate_command accepts a script named exactly' );
+
 done_testing();

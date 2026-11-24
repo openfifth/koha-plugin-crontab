@@ -38,7 +38,14 @@ scripts:
   - path: holds/holds_reminder.pl
 ```
 
-`path` is relative to `KOHA_CRON_PATH`. `allowed_hours` takes hours and ranges (`"2"`, `"0-5"`, `"0-5,22-23"`).
+`path` is relative to `KOHA_CRON_PATH` and names either a script or a directory:
+
+- a script: `runreport.pl`, `holds/holds_reminder.pl`, or just the file name (`nightly.pl` covers `batch/nightly.pl`);
+- a directory, with or without a trailing slash: `batch/` or `batch` covers everything under it, including subdirectories.
+
+A path is **not** a string prefix: `cleanup` does not cover `cleanup_database.pl`, and `batch` does not cover `batch_evil.pl`. Matching is case-sensitive.
+
+`allowed_hours` takes hours and ranges (`"2"`, `"0-5"`, `"0-5,22-23"`).
 
 ## Server-managed policy (for administrators)
 
@@ -68,7 +75,7 @@ How it combines with the library policy edited on the Configure page:
 - **Scripts:** only scripts the server file lists can be scheduled. A script it doesn't list is refused no matter what the library policy says, and an empty or unconfigured library policy does *not* unlock everything (nor does it lock everything out: it inherits the server file). The library policy can only select a subset.
 - **Unconfigured or empty library policy:** the server file applies as written. On install the plugin does not seed its own default list when a server file is configured, so there is nothing to narrow it.
 - **Constraints:** `non_repeatable` and `required_options` set by the server file always apply, and the library policy can only add to them. `allowed_hours` can only be narrowed, to the hours both allow.
-- **Directories:** an entry ending in `/` (for example `batch/`) offers every script under it.
+- **Directories:** an entry naming a directory (for example `batch/`) offers every script under it. Entries name scripts or directories, never a bare string prefix.
 - **No restart needed for edits:** the file is read on every request, so changing it (an Ansible run, for instance) takes effect immediately. Only changing the `koha-conf.xml` setting needs a restart.
 
 An Ansible sketch:
