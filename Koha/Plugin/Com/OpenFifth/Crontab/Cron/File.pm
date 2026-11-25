@@ -68,12 +68,20 @@ Constructor
 sub new {
     my ( $class, $args ) = @_;
 
-    my $plugin     = $args->{plugin} or die "Plugin instance required";
-    my $backup_dir = $plugin->mbf_dir . '/backups';
+    my $plugin = $args->{plugin} or die "Plugin instance required";
+
+    # Where new backups go. Koha deletes a plugin's whole directory when it is
+    # uninstalled, so backups kept under it (the old location, still read
+    # below) are lost with it; a location outside it survives.
+    my $legacy_dir = $plugin->mbf_dir . '/backups';
+    my $backup_dir = $args->{backup_dir};
+    $backup_dir //= $plugin->persistent_backup_dir() if $plugin->can('persistent_backup_dir');
+    $backup_dir //= $legacy_dir;
 
     my $self = {
         plugin       => $plugin,
         backup_dir   => $backup_dir,
+        legacy_dir   => $legacy_dir ne $backup_dir ? $legacy_dir : undef,
         lock_timeout => $args->{lock_timeout} || 10,
         lockfile     => $args->{lockfile} || '/tmp/koha-crontab-plugin.lock',
         cron_file    => $args->{cron_file},    # tests: operate on this file instead of the configured crontab
@@ -282,6 +290,39 @@ sub restore_crontab {
     };
 }
 
+=head2 persistent_backup_dir
+
+A directory for backups that survives uninstalling the plugin, or undef if
+there isn't a usable one (the caller then keeps backups under the plugin's own
+directory).
+
+    my $dir = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File::persistent_backup_dir();
+
+It is C<koha-crontab-plugin> under the C<backupdir> set in C<koha-conf.xml>
+(C</var/spool/koha/E<lt>instanceE<gt>> on package installs), created if need be.
+
+=cut
+
+sub persistent_backup_dir {
+    my $base = C4::Context->config('backupdir');
+    return unless defined $base && length $base && File::Spec->file_name_is_absolute($base);
+
+    my $dir = File::Spec->catdir( $base, 'koha-crontab-plugin' );
+    unless ( -d $dir ) {
+        return unless -d $base && -w $base;
+        make_path($dir);
+    }
+
+    return -d $dir && -w $dir ? $dir : undef;
+}
+
+# Every directory holding backups, the one new backups go to first
+sub _backup_dirs {
+    my ($self) = @_;
+
+    return grep { defined $_ && -d $_ } ( $self->{backup_dir}, $self->{legacy_dir} );
+}
+
 =head2 backup_path
 
 The full path of the backup called C<$name>, or undef if the name isn't a
@@ -299,8 +340,12 @@ sub backup_path {
 
     return unless defined $name && !ref $name && $name =~ $BACKUP_NAME;
 
-    my $path = File::Spec->catfile( $self->{backup_dir}, $name );
-    return -f $path ? $path : undef;
+    for my $dir ( $self->_backup_dirs ) {
+        my $path = File::Spec->catfile( $dir, $name );
+        return $path if -f $path;
+    }
+
+    return;
 }
 
 =head2 restore_backup
@@ -382,9 +427,16 @@ Returns an arrayref of hashrefs with 'filename' and 'timestamp' keys
 sub list_backups {
     my ($self) = @_;
 
-    opendir( my $dh, $self->{backup_dir} ) or return [];
-    my @backups = grep { $_ =~ $BACKUP_NAME && -f File::Spec->catfile( $self->{backup_dir}, $_ ) } readdir($dh);
-    closedir($dh);
+    # A backup name is in the first directory that has it
+    my %dir_of;
+    for my $dir ( reverse $self->_backup_dirs ) {
+        opendir( my $dh, $dir ) or next;
+        for my $name ( readdir $dh ) {
+            $dir_of{$name} = $dir if $name =~ $BACKUP_NAME && -f File::Spec->catfile( $dir, $name );
+        }
+        closedir($dh);
+    }
+    my @backups = keys %dir_of;
 
     # Newest first: by timestamp, then by the suffix that tells apart backups
     # taken in the same second ("..._2" is later than "...")
@@ -392,7 +444,7 @@ sub list_backups {
 
     my @result;
     for my $backup (@backups) {
-        my $fullpath = File::Spec->catfile( $self->{backup_dir}, $backup );
+        my $fullpath = File::Spec->catfile( $dir_of{$backup}, $backup );
         my $mtime    = ( stat($fullpath) )[9];
         push @result,
           {
@@ -556,7 +608,8 @@ sub _new_backup_filename {
     # pruned the oldest of them its name is free again, and a new version
     # reusing it would sort as the oldest and be pruned straight away.
     my $highest = 0;
-    if ( opendir( my $dh, $self->{backup_dir} ) ) {
+    for my $dir ( $self->_backup_dirs ) {
+        opendir( my $dh, $dir ) or next;
         for my $existing ( readdir $dh ) {
             next unless $existing =~ /^crontab_backup_\Q$when\E(?:_(\d+))?\z/;
             my $n = defined $1 ? $1 : 1;

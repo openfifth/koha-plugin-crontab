@@ -17,6 +17,10 @@ The plugin provides a configuration page accessible via the "Configure" action i
 - **Logging**: Toggle whether job add/edit/delete/enable/disable actions are recorded to Koha's action log
 - **Backup Retention**: How many crontab backups to keep before older ones are pruned (default: 10)
 
+Backups are kept in `koha-crontab-plugin/` under the `backupdir` set in `koha-conf.xml` (`/var/spool/koha/<instance>` on package installs) when the Koha user can write there, so they survive uninstalling the plugin. Otherwise they are kept under the plugin's own directory, which Koha deletes on uninstall. Backups from older versions in the plugin directory are still listed.
+
+Uninstalling the plugin leaves its jobs in the crontab as ordinary cron entries, and takes a final backup first when a backup directory is available.
+
 ### Versions and restoring
 
 The **Versions** tab lists the crontab backups (one per state, newest first), shows what changed against the current crontab, and can restore one. The current crontab is backed up before a restore, so it can be undone. A restore is checked like adding or enabling the jobs in it: a version containing a plugin-managed job that could not be saved today (script no longer permitted by the policy, unsupported command syntax, missing required option, repeated non-repeatable script, job-level environment variable) is refused and the reasons are shown.

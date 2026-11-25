@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Uninstalling the plugin no longer removes its jobs from the crontab.** Uninstall (and so a re-install) used to strip every plugin-managed job, silently stopping the library's scheduled work. The jobs now stay in the crontab as ordinary cron entries. Koha still deletes the plugin's directory on uninstall, so the crontab backups kept under it are removed; take a copy first if you want to keep them.
+- **Uninstalling the plugin no longer removes its jobs from the crontab.** Uninstall (and so a re-install) used to strip every plugin-managed job, silently stopping the library's scheduled work. The jobs now stay in the crontab as ordinary cron entries. A final backup is taken first.
+- **Crontab backups survive uninstalling the plugin.** Koha deletes a plugin's whole directory on uninstall, which used to take the backups with it. They are now kept in `koha-crontab-plugin/` under `backupdir` from `koha-conf.xml` when the Koha user can write there (falling back to the plugin's own directory otherwise). Backups already in the plugin directory are still listed and can be restored; new ones go to the new location. The Versions tab warns about the fallback and has a **Download current crontab** button.
 
 ## [1.8.0] - 2026-11-24
 

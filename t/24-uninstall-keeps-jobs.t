@@ -1,5 +1,5 @@
 use Modern::Perl;
-use Test::More tests => 3;
+use Test::More tests => 4;
 use File::Temp qw(tempdir);
 use FindBin qw($Bin);
 
@@ -18,8 +18,17 @@ open my $fh, '>', $file or die $!;
 print {$fh} $text;
 close $fh;
 
-ok( Koha::Plugin::Com::OpenFifth::Crontab::uninstall( bless {}, 'Koha::Plugin::Com::OpenFifth::Crontab' ),
+# (no directory to keep backups in, so no final backup is attempted)
+{
+    package NoBackupDir;
+    our @ISA = ('Koha::Plugin::Com::OpenFifth::Crontab');
+    sub persistent_backup_dir { undef }
+}
+my @warnings;
+local $SIG{__WARN__} = sub { push @warnings, @_ };
+ok( Koha::Plugin::Com::OpenFifth::Crontab::uninstall( bless {}, 'NoBackupDir' ),
     'uninstall succeeds without a crontab or settings' );
+like( "@warnings", qr/deleted with the plugin/, 'and says that the backups will not survive' );
 
 open $fh, '<', $file or die $!;
 local $/;

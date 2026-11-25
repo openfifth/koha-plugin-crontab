@@ -423,6 +423,19 @@ sub disable {
     return $self;
 }
 
+=head2 persistent_backup_dir
+
+Where crontab backups are kept so that they survive uninstalling the plugin
+(Koha deletes the plugin's directory then), or undef if there is nowhere
+suitable. See C<Cron::File::persistent_backup_dir>.
+
+=cut
+
+sub persistent_backup_dir {
+    require Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
+    return Koha::Plugin::Com::OpenFifth::Crontab::Cron::File::persistent_backup_dir();
+}
+
 sub uninstall {
     my ( $self ) = @_;
 
@@ -432,8 +445,21 @@ sub uninstall {
     # silently stops the library's scheduled work. They are still there, as
     # ordinary cron entries, if the plugin is installed again.
     #
-    # Note that Koha deletes this plugin's whole directory on uninstall, which
-    # includes the crontab backups kept under it.
+    # Koha deletes this plugin's whole directory on uninstall, which takes the
+    # backups kept under it. Backups live outside it when there is a suitable
+    # directory, so take a last one there for a clean way back; if there isn't
+    # one, say so in the log rather than make a copy that is about to be deleted.
+    if ( $self->persistent_backup_dir ) {
+        eval {
+            require Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
+            Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new( { plugin => $self } )->backup_crontab();
+            1;
+        } or warn "Could not take a final crontab backup before uninstall: $@";
+    }
+    else {
+        warn "No directory outside the plugin for crontab backups: the backups are deleted with the plugin";
+    }
+
     return 1;
 }
 
