@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-25
+
 ### Changed
 
 - **Administrators can require extra options on any script, with an Add option button and removable labels.** The Configure page's required-options picker was hidden for scripts that use `Koha::Script->describe_options`, on the grounds that the script already says what it needs. But a script can leave optional what a library wants always given (for example `--to` on `runreport.pl`, so every job names who gets the report). The options table now has an Actions column with an **Add option** button listing the script's other options; options added that way appear as labels in a third colour (yellow, beside grey for what the script itself requires and blue for what the server requires), each with a × to remove it. The server already enforced these either way; only a way to set them was missing.
