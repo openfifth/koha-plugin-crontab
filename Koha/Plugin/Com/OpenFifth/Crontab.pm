@@ -426,47 +426,14 @@ sub disable {
 sub uninstall {
     my ( $self ) = @_;
 
-    # Remove all plugin-managed jobs from crontab
-    require Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
-    require Koha::Plugin::Com::OpenFifth::Crontab::Cron::Job;
-
-    my $crontab = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new({
-        plugin => $self,
-    });
-    my $job_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Job->new({
-        crontab => $crontab,
-    });
-
-    # Create final backup before uninstall
-    my $backup_file = $crontab->backup_crontab();
-    warn "Created final backup before uninstall: $backup_file" if $backup_file;
-
-    # Remove all plugin-managed jobs
-    my $result = $crontab->safely_modify_crontab(sub {
-        my ($ct) = @_;
-
-        my @blocks_to_remove;
-        for my $block ($ct->blocks) {
-            my $metadata = $job_model->parse_job_metadata($block);
-            if ($metadata && $metadata->{'managed-by'} &&
-                $metadata->{'managed-by'} eq 'koha-crontab-plugin') {
-                push @blocks_to_remove, $block;
-            }
-        }
-
-        for my $block (@blocks_to_remove) {
-            $ct->remove($block);
-        }
-
-        warn "Removed " . scalar(@blocks_to_remove) . " plugin-managed job(s) from crontab";
-
-        return 1;
-    });
-
-    unless ($result->{success}) {
-        warn "Failed to remove plugin jobs from crontab: " . $result->{error};
-    }
-
+    # Deliberately leave the crontab alone. The jobs are the library's
+    # schedule and keep running whether or not this plugin is installed;
+    # removing them on uninstall (which is also what a plain re-install does)
+    # silently stops the library's scheduled work. They are still there, as
+    # ordinary cron entries, if the plugin is installed again.
+    #
+    # Note that Koha deletes this plugin's whole directory on uninstall, which
+    # includes the crontab backups kept under it.
     return 1;
 }
 
