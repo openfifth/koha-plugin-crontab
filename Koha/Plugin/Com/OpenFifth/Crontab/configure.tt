@@ -22,6 +22,16 @@
 #crontab_plugin_configure .script-policy-scroll thead th {
     z-index: 1;
 }
+#crontab_plugin_configure .policy-required-label .btn-close {
+    font-size: 0.5rem;
+    padding: 0.2rem;
+    margin-left: 0.35rem;
+    vertical-align: baseline;
+}
+#crontab_plugin_configure .policy-add-menu {
+    max-height: 18rem;
+    overflow-y: auto;
+}
 #crontab_plugin_configure .form-check-input[type="checkbox"] {
     width: 1em;
     height: 1em;
@@ -340,7 +350,7 @@
                             // A directory: per-script constraints can't be set on it
                             tbody.append(
                                 '<tr><td><code>' + escape_str(path) + '</code></td>' +
-                                '<td colspan="3" class="text-muted">Every script in this directory. Select individual scripts to set constraints on them.</td></tr>'
+                                '<td colspan="4" class="text-muted">Every script in this directory. Select individual scripts to set constraints on them.</td></tr>'
                             );
                             return;
                         }
@@ -366,20 +376,33 @@
                             requiredHtml += optionBadge('text-bg-info', name, 'Set by the server administrator');
                         });
 
+                        // Options an administrator added here: removable labels in a third colour.
+                        libraryRequired.forEach(function(name) {
+                            requiredHtml += '<span class="badge text-bg-warning me-1 policy-required-label" title="Required by this library">--' + escape_str(name) +
+                                '<button type="button" class="btn-close policy-remove-required" data-path="' + escape_str(path) + '" data-option="' + escape_str(name) +
+                                '" aria-label="Stop requiring --' + escape_str(name) + '" title="Stop requiring --' + escape_str(name) + '"></button></span>';
+                        });
+
                         // An administrator can also require options the script itself leaves
                         // optional (for example --to on runreport.pl, so every job names who
                         // gets the report). That applies to any script with options, however it
                         // declares them: the server enforces it either way.
                         let candidates = info.options.filter(function(o) {
-                            return info.declared.indexOf(o.name) === -1 && serverRequired.indexOf(o.name) === -1;
+                            return info.declared.indexOf(o.name) === -1 && serverRequired.indexOf(o.name) === -1 && libraryRequired.indexOf(o.name) === -1;
                         });
+                        let addHtml = '';
                         if (candidates.length) {
-                            requiredHtml += '<div class="small text-muted mt-1">Also require:</div>';
-                            requiredHtml += '<select multiple class="form-select form-select-sm policy-required-select" data-path="' + escape_str(path) + '" aria-label="Also require these options: ' + escape_str(path) + '">';
+                            addHtml = '<div class="dropdown">' +
+                                '<button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false">' +
+                                    '<i class="fa fa-plus"></i> Add option</button>' +
+                                '<ul class="dropdown-menu policy-add-menu">';
                             candidates.forEach(function(o) {
-                                requiredHtml += '<option value="' + escape_str(o.name) + '"' + (libraryRequired.indexOf(o.name) !== -1 ? ' selected' : '') + '>--' + escape_str(o.name) + '</option>';
+                                addHtml += '<li><button type="button" class="dropdown-item policy-add-required" data-path="' + escape_str(path) + '" data-option="' + escape_str(o.name) + '">' +
+                                    '<code>--' + escape_str(o.name) + '</code>' +
+                                    (o.description ? '<br><small class="text-muted">' + escape_str(o.description) + '</small>' : '') +
+                                    '</button></li>';
                             });
-                            requiredHtml += '</select>';
+                            addHtml += '</ul></div>';
                         }
                         if (!requiredHtml) {
                             requiredHtml = '<span class="text-muted">' + (info.describe ? 'none declared' : '&mdash;') + '</span>';
@@ -400,6 +423,7 @@
                                         (hoursLocked ? ' disabled title="Set by the server administrator"' : '') + '>' +
                                 '</td>' +
                                 '<td>' + requiredHtml + '</td>' +
+                                '<td>' + addHtml + '</td>' +
                             '</tr>'
                         );
                     });
@@ -407,7 +431,7 @@
                     let table = $(
                         '<table class="table table-sm table-striped align-middle mb-0 w-100">' +
                             '<thead class="table-light sticky-top"><tr>' +
-                                '<th>Script</th><th class="text-center">Non-repeatable</th><th style="width: 9rem">Allowed hours</th><th>Required options</th>' +
+                                '<th>Script</th><th class="text-center">Non-repeatable</th><th style="width: 9rem">Allowed hours</th><th>Required options</th><th style="width: 9rem">Actions</th>' +
                             '</tr></thead>' +
                         '</table>'
                     );
@@ -417,16 +441,11 @@
                     container.append(
                         '<div class="form-text mt-1">' +
                             '<span class="badge text-bg-secondary">--option</span> is required by the script itself; ' +
-                            '<span class="badge text-bg-info">--option</span> is set by your server administrator. ' +
+                            '<span class="badge text-bg-info">--option</span> is set by your server administrator; ' +
+                            '<span class="badge text-bg-warning">--option</span> is one you required here (use &times; to remove it, <em>Add option</em> to require more). ' +
                             'Greyed-out controls are set by the server and cannot be changed here.' +
                         '</div>'
                     );
-
-                    container.find('.policy-required-select').select2({
-                        width: '100%',
-                        closeOnSelect: false,
-                        placeholder: 'Also require\u2026'
-                    });
 
                     container.find('.policy-non-repeatable').on('change', function() {
                         let path = $(this).data('path');
@@ -440,10 +459,27 @@
                         libraryPolicyState[path].allowed_hours = $(this).val();
                     });
 
-                    container.find('.policy-required-select').on('change', function() {
-                        let path = $(this).data('path');
+                    // Add / remove an option this library requires, then redraw the table
+                    // (keeping its scroll position) so the labels and the menu stay in step.
+                    function changeRequired(path, option, add) {
                         libraryPolicyState[path] = libraryPolicyState[path] || emptyLibraryState();
-                        libraryPolicyState[path].required_options = $(this).val() || [];
+                        let current = libraryPolicyState[path].required_options || [];
+                        libraryPolicyState[path].required_options = add
+                            ? (current.indexOf(option) === -1 ? current.concat([option]) : current)
+                            : current.filter(function(n) { return n !== option; });
+
+                        let scrollBox = container.find('.script-policy-scroll');
+                        let scrollTop = scrollBox.scrollTop();
+                        renderPolicyPanelsNow($("#script_picker").val() || []);
+                        container.find('.script-policy-scroll').scrollTop(scrollTop);
+                    }
+
+                    container.find('.policy-add-required').on('click', function() {
+                        changeRequired($(this).data('path'), $(this).data('option'), true);
+                    });
+
+                    container.find('.policy-remove-required').on('click', function() {
+                        changeRequired($(this).data('path'), $(this).data('option'), false);
                     });
                 }
 
