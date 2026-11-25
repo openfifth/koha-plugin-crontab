@@ -195,9 +195,9 @@
                     </div>
                     <div class="alert alert-warning d-flex justify-content-between align-items-center">
                         <span>
-                            <i class="fa fa-exclamation-triangle"></i> Uninstalling the plugin leaves the jobs in the crontab. Versions are kept in the
-                            server's backup directory when it has one the plugin can write to; otherwise they are kept inside the plugin's
-                            own directory and are deleted with it. To keep a copy somewhere safe, download the current crontab (or any
+                            <i class="fa fa-exclamation-triangle"></i> Uninstalling the plugin leaves the jobs in the crontab. Versions are kept outside
+                            the plugin, in the server's backup directory or the instance's own directory; only if neither is writable are
+                            they kept inside the plugin's own directory and deleted with it. To keep a copy somewhere safe, download the current crontab (or any
                             version).
                         </span>
                         <button type="button" class="btn btn-default btn-sm ms-3" id="download-current-crontab"><i class="fa fa-download"></i> Download current crontab</button>

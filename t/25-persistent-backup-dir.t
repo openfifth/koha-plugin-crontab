@@ -65,26 +65,35 @@ make_path($own);
 my $fallback = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File->new( { plugin => FakePlugin->new( dir => $own ), cron_file => $cron, lockfile => "$dir/lock" } );
 is( $fallback->{backup_dir}, "$own/backups", 'without a persistent directory backups stay under the plugin' );
 
-# persistent_backup_dir itself: koha-crontab-plugin under the configured backupdir
+# persistent_backup_dir itself: koha-crontab-plugin under the configured
+# backupdir, else .crontab_backups beside upload_path
 {
     no warnings qw(redefine once);
-    my $configured;
-    local *C4::Context::config = sub { $_[1] eq 'backupdir' ? $configured : undef };
+    my %configured;
+    local *C4::Context::config = sub { $configured{ $_[1] } };
+    my $pbd = sub { Koha::Plugin::Com::OpenFifth::Crontab::Cron::File::persistent_backup_dir() };
 
-    $configured = "$dir/spool";
-    make_path($configured);
-    my $made = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File::persistent_backup_dir();
-    is( $made, "$configured/koha-crontab-plugin", 'the directory is created under the configured backupdir' );
-    ok( -d $made, '...and exists' );
+    make_path( "$dir/spool", "$dir/instance/uploads" );
+    %configured = ( backupdir => "$dir/spool", upload_path => "$dir/instance/uploads" );
+    is( $pbd->(), "$dir/spool/koha-crontab-plugin", 'the directory is created under the configured backupdir' );
+    ok( -d "$dir/spool/koha-crontab-plugin", '...and exists' );
 
-    $configured = "$dir/not-there";
-    is( Koha::Plugin::Com::OpenFifth::Crontab::Cron::File::persistent_backup_dir(), undef, 'no backupdir on disk: no persistent directory' );
+    # backupdir not writable (root-owned on some installs): the instance directory
+    %configured = ( backupdir => "$dir/not-there", upload_path => "$dir/instance/uploads" );
+    is( $pbd->(), "$dir/instance/.crontab_backups", 'a backupdir that is not there falls back to the instance directory' );
+    ok( -d "$dir/instance/.crontab_backups", '...which is created' );
 
-    $configured = undef;
-    is( Koha::Plugin::Com::OpenFifth::Crontab::Cron::File::persistent_backup_dir(), undef, 'backupdir not configured: no persistent directory' );
+    %configured = ( upload_path => "$dir/instance/uploads/" );
+    is( $pbd->(), "$dir/instance/.crontab_backups", 'a trailing slash on upload_path makes no difference' );
 
-    $configured = 'relative/path';
-    is( Koha::Plugin::Com::OpenFifth::Crontab::Cron::File::persistent_backup_dir(), undef, 'a relative backupdir is not used' );
+    %configured = ( backupdir => "$dir/not-there", upload_path => "$dir/no-instance/uploads" );
+    is( $pbd->(), undef, 'neither location usable: no persistent directory' );
+
+    %configured = ();
+    is( $pbd->(), undef, 'nothing configured: no persistent directory' );
+
+    %configured = ( backupdir => 'relative/path', upload_path => 'relative/uploads' );
+    is( $pbd->(), undef, 'relative paths are not used' );
 }
 
 done_testing;

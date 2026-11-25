@@ -298,22 +298,53 @@ directory).
 
     my $dir = Koha::Plugin::Com::OpenFifth::Crontab::Cron::File::persistent_backup_dir();
 
-It is C<koha-crontab-plugin> under the C<backupdir> set in C<koha-conf.xml>
-(C</var/spool/koha/E<lt>instanceE<gt>> on package installs), created if need be.
+The first of these that the Koha user can write to (creating it if need be):
+
+=over 4
+
+=item 1. C<koha-crontab-plugin> under the C<backupdir> set in C<koha-conf.xml>
+(C</var/spool/koha/E<lt>instanceE<gt>> on package installs);
+
+=item 2. C<.crontab_backups> in the instance's own directory, the parent of
+C<upload_path> (C</var/lib/koha/E<lt>instanceE<gt>> on package installs), which
+the Koha user owns even where C<backupdir> is root's.
+
+=back
 
 =cut
 
 sub persistent_backup_dir {
-    my $base = C4::Context->config('backupdir');
-    return unless defined $base && length $base && File::Spec->file_name_is_absolute($base);
+    my @candidates;
 
-    my $dir = File::Spec->catdir( $base, 'koha-crontab-plugin' );
-    unless ( -d $dir ) {
-        return unless -d $base && -w $base;
-        make_path($dir);
+    my $backupdir = C4::Context->config('backupdir');
+    push @candidates, File::Spec->catdir( $backupdir, 'koha-crontab-plugin' )
+      if defined $backupdir && length $backupdir;
+
+    my $upload_path = C4::Context->config('upload_path');
+    if ( defined $upload_path && length $upload_path ) {
+        my ( $volume, $dirs ) = File::Spec->splitpath( File::Spec->canonpath($upload_path), 1 );
+        my @parts = File::Spec->splitdir($dirs);
+        pop @parts;
+        push @candidates, File::Spec->catdir( File::Spec->catpath( $volume, File::Spec->catdir(@parts), '' ), '.crontab_backups' );
     }
 
-    return -d $dir && -w $dir ? $dir : undef;
+    for my $dir (@candidates) {
+        next unless File::Spec->file_name_is_absolute($dir);
+
+        my ( $volume, $dirs ) = File::Spec->splitpath( $dir, 1 );
+        my @parts = File::Spec->splitdir($dirs);
+        pop @parts;
+        my $parent = File::Spec->catpath( $volume, File::Spec->catdir(@parts), '' );
+
+        unless ( -d $dir ) {
+            next unless -d $parent && -w $parent;
+            make_path($dir);
+        }
+
+        return $dir if -d $dir && -w $dir;
+    }
+
+    return;
 }
 
 # Every directory holding backups, the one new backups go to first
