@@ -810,7 +810,7 @@ Returns hashref with: valid => 1/0, error => string (if invalid), script => matc
 =cut
 
 sub validate_command {
-    my ( $self, $command ) = @_;
+    my ( $self, $command, $available_scripts ) = @_;
 
     return { valid => 0, error => "Command is required" } unless $command;
 
@@ -827,8 +827,9 @@ sub validate_command {
 
     return { valid => 0, error => "Empty command" } unless defined $script_path && length $script_path;
 
-    # Get list of available scripts
-    my $available_scripts = $self->get_available_scripts();
+    # Get list of available scripts (a caller checking many commands passes the
+    # list it already has: finding and reading every script is not cheap)
+    $available_scripts ||= $self->get_available_scripts();
 
     # Try to match against available scripts. A script may be referenced
     # either by its $KOHA_CRON_PATH-relative form (as the plugin writes it)
@@ -1126,6 +1127,29 @@ sub check_positional_args {
     }
 
     return { valid => 1 };
+}
+
+=head2 permits
+
+Whether a command is one the script policy lets the plugin manage: a single
+safe command line for a script that is on the approved list. Anything else (a
+script that isn't permitted, a command that isn't a script at all, or one with
+shell syntax) is not, and a system entry like that can't be migrated.
+
+    my $ok = $script->permits( $command, $available_scripts );
+
+C<$available_scripts> is optional: the result of C<get_available_scripts>, for
+checking many commands without finding the scripts again for each.
+
+This only asks C<validate_command>, the same gate migrating applies, so what
+the UI offers and what the server accepts agree.
+
+=cut
+
+sub permits {
+    my ( $self, $command, $available_scripts ) = @_;
+
+    return $self->validate_command( $command, $available_scripts )->{valid} ? 1 : 0;
 }
 
 =head2 job_policy_error

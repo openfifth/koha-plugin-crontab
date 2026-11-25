@@ -692,6 +692,10 @@
                                             "type": "boolean",
                                             "description": "Whether this job is managed by the plugin"
                                         },
+                                        "migratable": {
+                                            "type": "boolean",
+                                            "description": "For system entries: whether the command is for a script the script policy permits, so it can be migrated into plugin management"
+                                        },
                                         "comments": {
                                             "type": "array",
                                             "items": {

@@ -988,6 +988,11 @@ sub list_all {
             { crontab => $crontab }
         );
 
+        my $script_model = Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script->new( { crontab => $crontab } );
+
+        # Found once for all the entries: each lookup reads every script
+        my $available_scripts = $script_model->get_available_scripts();
+
         my $entries      = $job_model->get_all_crontab_entries();
         my @entries_data = map {
             my $entry = {
@@ -997,6 +1002,11 @@ sub list_all {
                 managed => $_->{managed} ? Mojo::JSON->true : Mojo::JSON->false,
                 comments => $_->{comments} || [],
             };
+
+            # Whether a system entry can be migrated: only commands for scripts the
+            # policy permits (migrating enforces the same, this is what the UI offers)
+            $entry->{migratable} = $script_model->permits( $_->{command}, $available_scripts ) ? Mojo::JSON->true : Mojo::JSON->false
+              unless $_->{managed};
 
             # Add managed job fields if applicable
             if ( $_->{managed} ) {
