@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-11-25
+
 ### Changed
 
 - **The Configure page shows the bare arguments a script requires.** A script such as `runreport.pl` needs at least one `reportID` even though it isn't an `--option`; the plugin always refused jobs without it, but the options table never said so. It now shows an outlined label (`reportID …` where several are accepted) beside the `--option` labels.
