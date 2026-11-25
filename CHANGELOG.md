@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The Configure page warns when no server policy file is configured.** Without `koha_plugin_crontab_script_policy` in `koha-conf.xml` the library policy is the only limit, so anyone who can use the page can allow any script under the cron directory. The page now says so, and how to restrict it, where before the script picker simply offered every script.
+
 ## [1.10.0] - 2026-11-25
 
 ### Changed
