@@ -175,11 +175,18 @@ sub get_available_scripts {
             my $rel_path = $script->{relative_path};
             $rel_path =~ s/^\$KOHA_CRON_PATH\/?//;
 
-            for my $entry (@$filter_entries) {
-                if ( $self->_policy_path_matches( $entry->{path}, $rel_path, $script->{name} ) ) {
-                    push @filtered_scripts, $script;
-                    last;
-                }
+            my $permitted = grep { $self->_policy_path_matches( $_->{path}, $rel_path, $script->{name} ) } @$filter_entries;
+
+            if ($permitted) {
+                push @filtered_scripts, $script;
+            }
+            elsif ( $options->{bypass_filter} && $options->{include_restricted} ) {
+
+                # The Configure page lists what the server policy leaves out too,
+                # marked so it can show it can't be chosen. Only that listing asks
+                # for this; nothing that enforces policy does.
+                $script->{server_restricted} = 1;
+                push @filtered_scripts, $script;
             }
         }
         @scripts = @filtered_scripts;
@@ -188,6 +195,8 @@ sub get_available_scripts {
     # Attach policy to scripts that matched an *exact* effective policy entry
     # (never a directory-prefix entry)
     for my $script (@scripts) {
+        next if $script->{server_restricted};
+
         my $rel_path = $script->{relative_path};
         $rel_path =~ s/^\$KOHA_CRON_PATH\/?//;
 

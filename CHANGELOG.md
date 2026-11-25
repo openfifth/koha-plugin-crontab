@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **The Configure page warns when no server policy file is configured.** Without `koha_plugin_crontab_script_policy` in `koha-conf.xml` the library policy is the only limit, so anyone who can use the page can allow any script under the cron directory. The page now says so, and how to restrict it, where before the script picker simply offered every script.
+- **The Configure page shows a policy banner at the top.** With no server policy file (`koha_plugin_crontab_script_policy` in `koha-conf.xml`) the library policy is the only limit, so anyone who can use the page can allow any script under the cron directory; the banner says so and how to restrict it. With a server policy file it explains that the server limits what can be allowed.
+- **With a server policy file, the script picker lists every script again, and marks the ones the server leaves out.** They appear in red, labelled "Not permitted by the server policy", and can't be selected (they used to be hidden entirely). `GET /scripts` takes a new `include_restricted` option, only with `bypass_filter`, that adds a `server_restricted` flag; what can actually be scheduled is unchanged.
 
 ## [1.10.0] - 2026-11-25
 

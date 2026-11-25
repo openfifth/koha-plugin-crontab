@@ -62,11 +62,24 @@ sub list {
         my $bypass_filter = $c->validation->param('bypass_filter') || 0;
         my $options = $bypass_filter ? { bypass_filter => 1 } : {};
 
+        # The Configure page also lists what a server policy file leaves out, marked
+        # server_restricted. Only meaningful together with bypass_filter.
+        $options->{include_restricted} = 1 if $bypass_filter && $c->validation->param('include_restricted');
+
         my $scripts = $script_model->get_available_scripts($options);
 
         return $c->render(
             status  => 200,
-            openapi => { scripts => $scripts }
+            openapi => {
+                scripts => [
+                    map {
+                        my %script = %$_;
+                        $script{server_restricted} = $script{server_restricted} ? Mojo::JSON->true : Mojo::JSON->false
+                          if $options->{include_restricted};
+                        \%script
+                    } @$scripts
+                ]
+            }
         );
     }
     catch {

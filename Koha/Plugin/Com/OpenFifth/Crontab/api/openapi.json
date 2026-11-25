@@ -785,6 +785,14 @@
                     "required": false,
                     "type": "boolean",
                     "default": false
+                },
+                {
+                    "name": "include_restricted",
+                    "in": "query",
+                    "description": "With bypass_filter: also list scripts a server policy file does not permit, marked server_restricted (used by the configuration page to show why they can't be chosen)",
+                    "required": false,
+                    "type": "boolean",
+                    "default": false
                 }
             ],
             "responses": {
@@ -813,6 +821,10 @@
                                         "type": {
                                             "type": "string",
                                             "description": "Script type (perl or shell)"
+                                        },
+                                        "server_restricted": {
+                                            "type": "boolean",
+                                            "description": "Only with include_restricted: true if a server policy file does not permit this script, so it cannot be chosen"
                                         },
                                         "description": {
                                             "type": "string",

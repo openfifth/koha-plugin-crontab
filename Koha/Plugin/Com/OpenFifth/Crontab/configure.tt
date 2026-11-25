@@ -31,6 +31,19 @@
 <div id="crontab_plugin_configure">
     <h1>Crontab: Configuration</h1>
 
+    <div id="policy_banner_restricted" class="alert alert-info" style="display: none;">
+        <i class="fa fa-info-circle"></i> <strong>A server policy file limits which scripts can be allowed.</strong>
+        Scripts it leaves out are listed in <span class="text-danger fw-bold">red</span> in the script picker and cannot be
+        selected; anything already selected that it no longer permits is ignored. This page can only narrow what the server permits.
+    </div>
+    <div id="policy_banner_open" class="alert alert-warning" style="display: none;">
+        <i class="fa fa-exclamation-triangle"></i> <strong>No server policy file is configured.</strong>
+        Anyone who can open this page can allow <em>any</em> script under the cron directory, so what is chosen here is
+        the only limit on what can be scheduled. To restrict it, your server administrator can set
+        <code>koha_plugin_crontab_script_policy</code> in <code>koha-conf.xml</code> to a policy file; this page can then
+        only narrow it.
+    </div>
+
     <form method="post" action="/cgi-bin/koha/plugins/run.pl">
         [% INCLUDE 'csrf-token.inc' %]
         <input type="hidden" name="class" value="[% CLASS | html %]" />
@@ -91,17 +104,6 @@
                     Search and select the scripts users may schedule. <strong>If nothing is selected, no scripts can be scheduled.</strong>
                     <br/><strong>Note:</strong> You can also type directory prefixes (e.g., <code>batch/</code>) to allow all scripts in that directory.
                     <br/><strong>Note:</strong> Exact scripts (not prefixes) can additionally be marked non-repeatable or restricted to specific hours below the picker.
-                </div>
-                <div id="script_policy_restricted_note" class="alert alert-info mt-2" style="display: none;">
-                    Your server administrator limits which scripts can be offered here. Only the scripts and directories
-                    their policy file permits can be selected; anything outside it would be ignored.
-                </div>
-                <div id="script_policy_open_note" class="alert alert-warning mt-2" style="display: none;">
-                    <i class="fa fa-exclamation-triangle"></i> <strong>No server policy file is configured.</strong>
-                    Anyone who can open this page can allow <em>any</em> script under the cron directory, so what is chosen here is
-                    the only limit on what can be scheduled. To restrict it, your server administrator can set
-                    <code>koha_plugin_crontab_script_policy</code> in <code>koha-conf.xml</code> to a policy file; this page can then
-                    only narrow it.
                 </div>
                 <div id="script_policy_panels"></div>
             </li>
@@ -235,7 +237,8 @@
                 // With a server policy file the server is a ceiling: only what it permits
                 // can be offered, and free typing of directory prefixes is not allowed.
                 let restricted = Object.keys(serverPolicy).length > 0;
-                $("#script_policy_open_note").toggle(!restricted);
+                $("#policy_banner_open").toggle(!restricted);
+                $("#policy_banner_restricted").toggle(restricted);
 
                 function coveredByServer(path) {
                     if (!restricted) return true;
@@ -445,7 +448,7 @@
 
                 // Load all available scripts (with bypass_filter=1 to see all scripts for configuration)
                 $.ajax({
-                    url: '/api/v1/contrib/crontab/scripts?bypass_filter=1',
+                    url: '/api/v1/contrib/crontab/scripts?bypass_filter=1&include_restricted=1',
                     method: 'GET',
                     success: function(data) {
                         if (data.scripts) {
@@ -465,13 +468,15 @@
                             text: script.name,
                             description: script.description,
                             path: script.relative_path.replace(/^\$KOHA_CRON_PATH\/?/, ''),
-                            type: script.type
+                            type: script.type,
+                            // A server policy that leaves a script out can't be overridden here:
+                            // it is listed, but disabled
+                            disabled: !!script.server_restricted,
+                            serverRestricted: !!script.server_restricted
                         };
                     });
 
                     if (restricted) {
-                        $("#script_policy_restricted_note").show();
-
                         // The server's directory entries are choices too: selecting one allows
                         // everything under it (individual scripts above can narrow further).
                         Object.keys(serverPolicy).forEach(function(path) {
@@ -499,7 +504,14 @@
                             }
         
                             let $script = $("<div></div>");
+                            if (script.serverRestricted) {
+                                $script.addClass('text-danger');
+                            }
                             let html = '<strong>' + escape_str(script.text) + '</strong>';
+
+                            if (script.serverRestricted) {
+                                html += ' <span class="badge text-bg-danger">Not permitted by the server policy</span>';
+                            }
         
                             if (script.type) {
                                 html += ' <span class="badge badge-secondary">' + script.type + '</span>';
