@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-25
+
 ### Changed
 
 - **Uninstalling the plugin no longer removes its jobs from the crontab.** Uninstall (and so a re-install) used to strip every plugin-managed job, silently stopping the library's scheduled work. The jobs now stay in the crontab as ordinary cron entries. A final backup is taken first.

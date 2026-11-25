@@ -34,7 +34,7 @@ use C4::Context;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::File;
 use Koha::Plugin::Com::OpenFifth::Crontab::Cron::Script;
 
-our $VERSION         = '1.8.0';
+our $VERSION         = '1.9.0';
 our $MINIMUM_VERSION = "25.05.00";
 
 our $metadata = {
@@ -44,7 +44,7 @@ our $metadata = {
     # not 'license', so the licence is also stated in the description.
     description     => 'Script scheduling. Licensed under AGPL-3.0-or-later.',
     date_authored   => '2023-04-25',
-    date_updated    => '2026-11-24',
+    date_updated    => '2026-11-25',
     minimum_version => $MINIMUM_VERSION,
     maximum_version => undef,
     version         => $VERSION,
