@@ -366,15 +366,16 @@
                             requiredHtml += optionBadge('text-bg-info', name, 'Set by the server administrator');
                         });
 
-                        // Plain GetOptions scripts give no signal about what matters, so an
-                        // administrator can choose. A script that declares its own options doesn't
-                        // need that, unless an older policy already added some (so they can be removed).
+                        // An administrator can also require options the script itself leaves
+                        // optional (for example --to on runreport.pl, so every job names who
+                        // gets the report). That applies to any script with options, however it
+                        // declares them: the server enforces it either way.
                         let candidates = info.options.filter(function(o) {
                             return info.declared.indexOf(o.name) === -1 && serverRequired.indexOf(o.name) === -1;
                         });
-                        let showPicker = candidates.length && ( !info.describe || libraryRequired.length );
-                        if (showPicker) {
-                            requiredHtml += '<select multiple class="form-select form-select-sm policy-required-select mt-1" data-path="' + escape_str(path) + '">';
+                        if (candidates.length) {
+                            requiredHtml += '<div class="small text-muted mt-1">Also require:</div>';
+                            requiredHtml += '<select multiple class="form-select form-select-sm policy-required-select" data-path="' + escape_str(path) + '" aria-label="Also require these options: ' + escape_str(path) + '">';
                             candidates.forEach(function(o) {
                                 requiredHtml += '<option value="' + escape_str(o.name) + '"' + (libraryRequired.indexOf(o.name) !== -1 ? ' selected' : '') + '>--' + escape_str(o.name) + '</option>';
                             });
