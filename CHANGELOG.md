@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-25
+
 ### Changed
 
 - **The Migrate button on system entries only appears for scripts the policy permits.** It used to be offered for every line in the system crontab, including ones (such as non-Koha commands or scripts that aren't on the policy) that the server would refuse to migrate. Those entries now show "Not an approved script". `GET /crontab/all` reports `migratable` for each system entry; migrating still enforces the policy on the server.
