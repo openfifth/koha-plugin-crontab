@@ -277,7 +277,7 @@
                 let scriptOptionsCache = {};
 
                 function emptyOptionInfo() {
-                    return { describe: false, declared: [], options: [] };
+                    return { describe: false, declared: [], options: [], positional: [] };
                 }
 
                 function fetchMissingScriptOptions(paths, callback) {
@@ -310,6 +310,8 @@
                             scriptOptionsCache[path] = {
                                 describe: !!data.uses_describe_options,
                                 declared: all.filter(function(o) { return o.declared_required; }).map(function(o) { return o.name; }),
+                                // Bare arguments the script needs (e.g. reportID for runreport.pl)
+                                positional: (data.positional_args || []).filter(function(a) { return a.required && a.min; }),
                                 options: all.filter(function(o) {
                                     return o.type !== 'boolean' && o.type !== 'incremental';
                                 })
@@ -369,6 +371,15 @@
                         // Required options the script declares itself are shown, not editable: the
                         // script enforces them whatever the policy says.
                         let requiredHtml = '';
+
+                        // Bare arguments it needs are not --options, so they get their own outlined
+                        // label (and the plugin refuses a job that leaves them out).
+                        info.positional.forEach(function(arg) {
+                            let name = arg.name || arg.label || 'argument';
+                            let title = 'Required by the script: ' + (arg.min > 1 ? 'at least ' + arg.min + ' arguments' : 'an argument') + (arg.variadic ? ', or several' : '');
+                            requiredHtml += '<span class="badge border border-secondary text-secondary me-1" title="' + escape_str(title) + '">' +
+                                escape_str(name) + (arg.min > 1 ? ' \u00d7' + arg.min : '') + (arg.variadic ? ' \u2026' : '') + '</span>';
+                        });
                         info.declared.forEach(function(name) {
                             requiredHtml += optionBadge('text-bg-secondary', name, 'Required by the script itself');
                         });
@@ -440,7 +451,7 @@
                     container.append($('<div class="script-policy-scroll"></div>').append(table));
                     container.append(
                         '<div class="form-text mt-1">' +
-                            '<span class="badge text-bg-secondary">--option</span> is required by the script itself; ' +
+                            '<span class="badge text-bg-secondary">--option</span> is required by the script itself, and <span class="badge border border-secondary text-secondary">argument</span> is a bare argument it needs; ' +
                             '<span class="badge text-bg-info">--option</span> is set by your server administrator; ' +
                             '<span class="badge text-bg-warning">--option</span> is one you required here (use &times; to remove it, <em>Add option</em> to require more). ' +
                             'Greyed-out controls are set by the server and cannot be changed here.' +
